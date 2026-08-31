@@ -78,7 +78,15 @@ function TurnBasedSkirmish:ClearRoundActors()
 
     for _, actor in ipairs(actorsToRemove) do
         if MovableMan:IsActor(actor) then
-            actor:GibThis();
+            -- Round-reset cleanup only.
+        -- Surviving combatants disappear without creating artificial
+        -- gibs. Real battle gore, limbs, dropped equipment and terrain
+        -- destruction remain in the scene.
+        local removedActor = MovableMan:RemoveActor(actor);
+
+        if removedActor then
+            DeleteEntity(removedActor);
+        end
         end
     end
 end
