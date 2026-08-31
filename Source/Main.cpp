@@ -449,7 +449,7 @@ int main(int argc, char** argv) {
 	// Keep the normal menu systems loaded for rollback, but select the proven
 	// spectator Activity through ActivityMan's existing direct-launch path.
 	g_ActivityMan.SetDefaultActivityType("GAScripted");
-	g_ActivityMan.SetDefaultActivityName("Turn Based Skirmish");
+	g_ActivityMan.SetDefaultActivityName("Spectator Arena");
 	g_SceneMan.SetDefaultSceneName("Ketanot Hills");
 	g_ActivityMan.SetLaunchIntoActivity(true);
 

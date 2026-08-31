@@ -1,0 +1,78 @@
+# Spectator Arena
+
+## Purpose
+
+Spectator Arena is an autonomous AI-vs-AI Cortex Command activity intended to become a dedicated livestream/spectator application. It keeps the original actors, weapons, AI, projectile physics, gore, particles, destructible terrain, and map systems active while the player observes the match.
+
+The current content is deliberately conservative: two autonomous teams of eight fight in real time on `Ketanot Hills`.
+
+## Startup flow
+
+The debug-release executable applies the dedicated startup selection in `Source/Main.cpp`:
+
+1. Initialize the normal Cortex Command managers and load data modules.
+2. Select activity type `GAScripted`.
+3. Select activity `Spectator Arena`.
+4. Select scene `Ketanot Hills`.
+5. Set direct activity launch, bypassing the normal menu loop.
+
+Launch from the repository root with:
+
+```powershell
+.\Cortex Command.debug.release.exe
+```
+
+The equivalent runtime settings are `LaunchIntoActivity = 1`, `DefaultActivityType = GAScripted`, `DefaultActivityName = Spectator Arena`, and `DefaultSceneName = Ketanot Hills`. `Userdata/Settings.ini` remains runtime state and is not source controlled.
+
+## Activity implementation
+
+The active registration is in `Data/Base.rte/Activities.ini`; the implementation is `Data/Base.rte/Activities/SpectatorArena.lua` with Lua class `SpectatorArena`.
+
+The activity preserves the existing faction pool, faction-owned weapons, eight actors per side, real-time AI movement/combat, spectator camera, elimination detection, cumulative score, and automatic round restart.
+
+## Round state machine
+
+The lifecycle is explicit in `SpectatorArena.lua` and emits one concise transition log per state change:
+
+```text
+BOOT -> PREPARE_ROUND -> SPAWN_TEAMS -> BATTLE
+     -> ROUND_RESULT -> ROUND_RESET -> PREPARE_ROUND
+```
+
+- `BOOT`: initialize teams, score, timers, and spectator view.
+- `PREPARE_ROUND`: prepare the next round number and faction selection.
+- `SPAWN_TEAMS`: create and place both eight-person teams with faction-owned loadouts.
+- `BATTLE`: begin the combat timer once both teams have living actors.
+- `ROUND_RESULT`: resolve a winner/draw once, incrementing score at most once.
+- `ROUND_RESET`: remove only the previous round’s team actors, then spawn the next round.
+
+## Winner and score logic
+
+The first team with no living actors loses. If both teams are eliminated, the result is a draw. `RoundOver` prevents duplicate results, score increments, or reset operations. The score remains cumulative for the life of the activity.
+
+## Watchdog
+
+`MaxRoundDurationMS` is centralized in `StartActivity` and is currently `300000` ms (five minutes). The timer starts when the round enters `BATTLE`.
+
+On timeout, the activity logs `SpectatorArena: WATCHDOG_TIMEOUT`, compares living actor counts, and awards the round to the team with more survivors. Equal survivor counts are recorded as a draw; no fake kills are created. The same `RoundOver` guard prevents a timeout from producing a second result.
+
+## Recovery behavior
+
+The round reset removes surviving team actors without creating artificial gibs, preserves the scene’s real combat damage, and starts the next round automatically. The spectator camera falls back to the center when no valid combatant exists. Spawn and one-team failure cases resolve through the same guarded result path rather than issuing duplicate resets.
+
+## Verification and known issues
+
+The source was rebuilt as `Debug Release|x64` and fresh launches were tested for this milestone. The direct-launch log confirmed `Ketanot Hills` and `Spectator Arena`; normal combat logs confirmed battle arming and automatic round progression. A deterministic short-timeout watchdog run confirmed one timeout, one result, reset, and subsequent round starts.
+
+The runtime still emits an empty-scene-preset warning before successfully loading `Ketanot Hills`, plus repeated sound-device initialization warnings. These are known warnings and are separate from the Lua lifecycle changes. The historical checkpoint/tag `spectator-soak-2026-08-31` remains unchanged.
+
+## Rollback and next milestones
+
+To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only test and remove or conditionally disable the dedicated startup assignments in `Source/Main.cpp` for a normal-menu source build. Do not delete the original menu systems.
+
+Next priorities are:
+
+1. camera director
+2. stream-facing HUD
+3. configurable teams/loadouts
+4. longer-duration soak testing

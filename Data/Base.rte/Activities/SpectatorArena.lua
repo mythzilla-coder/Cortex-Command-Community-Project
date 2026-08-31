@@ -1,4 +1,4 @@
-function TurnBasedSkirmish:CreateFactionSoldier(factionName)
+function SpectatorArena:CreateFactionSoldier(factionName)
     local moduleID = PresetMan:GetModuleID(factionName);
 
     local actorGroups = {
@@ -86,10 +86,12 @@ function TurnBasedSkirmish:CreateFactionSoldier(factionName)
 end
 
 
-function TurnBasedSkirmish:SpawnRound()
+function SpectatorArena:SpawnRound()
+    self:TransitionState("SPAWN_TEAMS");
     self.RoundOver = false;
     self.BattleStarted = false;
     self.RoundResultText = "";
+    self.SpawnGraceTimer:Reset();
 
     self.RoundNumber = self.RoundNumber + 1;
 
@@ -179,7 +181,7 @@ function TurnBasedSkirmish:SpawnRound()
 
 
     print(
-        "TurnBasedSkirmish: round " ..
+        "SpectatorArena: round " ..
         tostring(self.RoundNumber) ..
         " | " ..
         self.Team1Faction ..
@@ -188,7 +190,7 @@ function TurnBasedSkirmish:SpawnRound()
     );
 end
 
-function TurnBasedSkirmish:ClearRoundActors()
+function SpectatorArena:ClearRoundActors()
     local actorsToRemove = {};
 
     for actor in MovableMan.Actors do
@@ -213,7 +215,7 @@ function TurnBasedSkirmish:ClearRoundActors()
 end
 
 
-function TurnBasedSkirmish:FinishRound(winner)
+function SpectatorArena:FinishRound(winner)
     if self.RoundOver then
         return;
     end
@@ -221,6 +223,7 @@ function TurnBasedSkirmish:FinishRound(winner)
     self.RoundOver = true;
     self.WinnerTeam = winner;
     self.RoundEndTimer:Reset();
+    self:TransitionState("ROUND_RESULT");
 
     if winner == self.Team1 then
         self.Team1Score = self.Team1Score + 1;
@@ -235,7 +238,7 @@ function TurnBasedSkirmish:FinishRound(winner)
     end
 
     print(
-        "TurnBasedSkirmish: round " ..
+        "SpectatorArena: round " ..
         tostring(self.RoundNumber) ..
         " finished - " ..
         self.RoundResultText
@@ -243,8 +246,32 @@ function TurnBasedSkirmish:FinishRound(winner)
 end
 
 
-function TurnBasedSkirmish:StartActivity()
-    print("TurnBasedSkirmish: continuous AI vs AI spectator");
+function SpectatorArena:TransitionState(nextState)
+    if self.State ~= nextState then
+        self.State = nextState;
+        print("SpectatorArena: " .. nextState .. " " .. tostring(self.RoundNumber));
+    end
+end
+
+
+function SpectatorArena:ResolveWatchdog(team1Alive, team2Alive)
+    print("SpectatorArena: WATCHDOG_TIMEOUT");
+
+    if team1Alive > team2Alive then
+        print("SpectatorArena: WATCHDOG_RESULT TEAM_1");
+        self:FinishRound(self.Team1);
+    elseif team2Alive > team1Alive then
+        print("SpectatorArena: WATCHDOG_RESULT TEAM_2");
+        self:FinishRound(self.Team2);
+    else
+        print("SpectatorArena: WATCHDOG_RESULT DRAW");
+        self:FinishRound(Activity.NOTEAM);
+    end
+end
+
+
+function SpectatorArena:StartActivity()
+    print("SpectatorArena: autonomous AI vs AI spectator");
 
     self.Team1 = Activity.TEAM_1;
     self.Team2 = Activity.TEAM_2;
@@ -254,12 +281,17 @@ function TurnBasedSkirmish:StartActivity()
     self.Team2Score = 0;
     self.RoundNumber = 0;
 
+    self.State = "BOOT";
+    self.MaxRoundDurationMS = 300000;
     self.RoundOver = false;
     self.BattleStarted = false;
     self.RoundResultText = "";
 
     self.RoundEndDelay = 3000;
     self.RoundEndTimer = Timer();
+    self.RoundTimer = Timer();
+    self.SpawnGraceDelayMS = 5000;
+    self.SpawnGraceTimer = Timer();
 
     self:SetPlayerBrain(nil, Activity.PLAYER_1);
     self:SetTeamOfPlayer(Activity.PLAYER_1, self.SpectatorTeam);
@@ -275,11 +307,12 @@ function TurnBasedSkirmish:StartActivity()
         Activity.PLAYER_1
     );
 
+    self:TransitionState("PREPARE_ROUND");
     self:SpawnRound();
 end
 
 
-function TurnBasedSkirmish:UpdateActivity()
+function SpectatorArena:UpdateActivity()
     local team1Alive = 0;
     local team2Alive = 0;
 
@@ -412,7 +445,9 @@ function TurnBasedSkirmish:UpdateActivity()
         );
 
         if self.RoundEndTimer:IsPastSimMS(self.RoundEndDelay) then
+            self:TransitionState("ROUND_RESET");
             self:ClearRoundActors();
+            self:TransitionState("PREPARE_ROUND");
             self:SpawnRound();
         end
 
@@ -445,16 +480,36 @@ function TurnBasedSkirmish:UpdateActivity()
 
 
     if not self.BattleStarted then
+        if self.SpawnGraceTimer:IsPastSimMS(self.SpawnGraceDelayMS) then
+            if team1Alive <= 0 and team2Alive <= 0 then
+                self:FinishRound(Activity.NOTEAM);
+                return;
+            elseif team1Alive <= 0 then
+                self:FinishRound(self.Team2);
+                return;
+            elseif team2Alive <= 0 then
+                self:FinishRound(self.Team1);
+                return;
+            end
+        end
+
         if team1Alive > 0 and team2Alive > 0 then
             self.BattleStarted = true;
 
+            self:TransitionState("BATTLE");
+            self.RoundTimer:Reset();
             print(
-                "TurnBasedSkirmish: round " ..
+                "SpectatorArena: BATTLE_STARTED " ..
                 tostring(self.RoundNumber) ..
                 " armed"
             );
         end
 
+        return;
+    end
+
+    if self.RoundTimer:IsPastSimMS(self.MaxRoundDurationMS) then
+        self:ResolveWatchdog(team1Alive, team2Alive);
         return;
     end
 
@@ -471,9 +526,9 @@ function TurnBasedSkirmish:UpdateActivity()
 end
 
 
-function TurnBasedSkirmish:PauseActivity(pause)
+function SpectatorArena:PauseActivity(pause)
 end
 
 
-function TurnBasedSkirmish:EndActivity()
+function SpectatorArena:EndActivity()
 end

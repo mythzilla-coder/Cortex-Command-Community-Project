@@ -9,7 +9,7 @@ The activity and scene are:
 ```ini
 LaunchIntoActivity = 1
 DefaultActivityType = GAScripted
-DefaultActivityName = Turn Based Skirmish
+DefaultActivityName = Spectator Arena
 DefaultSceneName = Ketanot Hills
 ```
 
@@ -27,8 +27,8 @@ For a local runtime-only test, set `LaunchIntoActivity = 0` in `Userdata/Setting
 
 - Repository checkpoint `spectator-soak-2026-08-31` remained intact before editing.
 - `Debug Release|x64` rebuilt successfully with MSBuild after the source change.
-- Fresh launches bypassed the menu path and produced: `Scene "Ketanot Hills" was loaded`, `TurnBasedSkirmish: continuous AI vs AI spectator`, and `Activity "Turn Based Skirmish" was successfully started`.
-- The fresh-run console log recorded round 1 finishing (`BROWNCOATS WINS`), followed by automatic selection and arming of round 2.
+- Fresh launches bypassed the menu path and produced: `Scene "Ketanot Hills" was loaded`, `SpectatorArena: autonomous AI vs AI spectator`, and `Activity "Spectator Arena" was successfully started`.
+- The fresh-run console log recorded round 1 finishing (`BROWNCOATS WINS`), followed by automatic selection and arming of round 2. The current executable also contains the Spectator Arena lifecycle/watchdog changes documented in `SPECTATOR_ARENA.md`.
 - No Lua-loading errors or abort-log update were observed. Repeated audio-device warnings and one `Finding Scene preset '' failed` message were emitted; the requested scene loaded successfully immediately afterward. These should be revisited separately if clean logs are required.
 
 The executable was allowed to run unattended for multiple minutes on repeated fresh launches. The observed round duration was long enough that each verification run reached one completed round and the next round armed before the process was closed for log flushing.
