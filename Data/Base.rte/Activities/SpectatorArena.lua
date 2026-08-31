@@ -292,6 +292,15 @@ function SpectatorArena:StartActivity()
     self.RoundTimer = Timer();
     self.SpawnGraceDelayMS = 5000;
     self.SpawnGraceTimer = Timer();
+    self.CameraEvaluationIntervalMS = 500;
+    self.CameraMinimumHoldMS = 1500;
+    self.CameraSwitchThreshold = 1.25;
+    self.CameraEvaluationTimer = Timer();
+    self.CameraHoldTimer = Timer();
+    self.CameraFocusPosition = self.CameraPos;
+    self.CameraFocusScore = 0;
+    self.CameraFocusActor = nil;
+    self.CameraHasFocus = false;
 
     self:SetPlayerBrain(nil, Activity.PLAYER_1);
     self:SetTeamOfPlayer(Activity.PLAYER_1, self.SpectatorTeam);
@@ -309,6 +318,125 @@ function SpectatorArena:StartActivity()
 
     self:TransitionState("PREPARE_ROUND");
     self:SpawnRound();
+end
+
+
+function SpectatorArena:FindBestCombatFocus(team1Actors, team2Actors)
+    local combatRadius = 260;
+    local combatRadiusSquared = combatRadius * combatRadius;
+    local bestScore = -1;
+    local bestPosition = nil;
+    local bestActor = nil;
+    local bestEnemy = nil;
+
+    local function considerCandidates(candidates, enemies)
+        for _, candidate in ipairs(candidates) do
+            local nearbyEnemies = 0;
+            local nearestEnemyDistance = math.huge;
+            local nearestEnemy = nil;
+
+            for _, enemy in ipairs(enemies) do
+                local distanceVector = SceneMan:ShortestDistance(
+                    candidate.Pos,
+                    enemy.Pos,
+                    SceneMan.SceneWrapsX
+                );
+                local distanceSquared =
+                    (distanceVector.X * distanceVector.X) +
+                    (distanceVector.Y * distanceVector.Y);
+
+                if distanceSquared <= combatRadiusSquared then
+                    nearbyEnemies = nearbyEnemies + 1;
+                end
+
+                if distanceSquared < nearestEnemyDistance then
+                    nearestEnemyDistance = distanceSquared;
+                    nearestEnemy = enemy;
+                end
+            end
+
+            if nearestEnemy then
+                local score = nearbyEnemies * 1000;
+                score = score + math.max(0, combatRadiusSquared - nearestEnemyDistance) / combatRadiusSquared;
+
+                -- Make a last-survivor engagement win over a larger but distant cluster.
+                if #candidates == 1 then
+                    score = score + 750;
+                end
+
+                if score > bestScore then
+                    bestScore = score;
+                    bestActor = candidate;
+                    bestEnemy = nearestEnemy;
+                end
+            end
+        end
+    end
+
+    considerCandidates(team1Actors, team2Actors);
+    considerCandidates(team2Actors, team1Actors);
+
+    if bestActor and bestEnemy then
+        local distance = SceneMan:ShortestDistance(
+            bestActor.Pos,
+            bestEnemy.Pos,
+            SceneMan.SceneWrapsX
+        );
+        bestPosition = bestActor.Pos + (distance * 0.5);
+    elseif team1Actors[1] then
+        bestScore = 0;
+        bestActor = team1Actors[1];
+        bestPosition = bestActor.Pos;
+    elseif team2Actors[1] then
+        bestScore = 0;
+        bestActor = team2Actors[1];
+        bestPosition = bestActor.Pos;
+    end
+
+    return bestPosition, bestScore, bestActor;
+end
+
+
+function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
+    if self.State ~= "BATTLE" then
+        if self.RoundOver and self.CameraFocusPosition then
+            self:SetObservationTarget(self.CameraFocusPosition, Activity.PLAYER_1);
+        else
+            self:SetObservationTarget(self.CameraPos, Activity.PLAYER_1);
+        end
+        return;
+    end
+
+    local currentFocusValid = self.CameraFocusActor and MovableMan:IsActor(self.CameraFocusActor);
+    local shouldEvaluate = not self.CameraHasFocus or not currentFocusValid;
+
+    if self.CameraEvaluationTimer:IsPastSimMS(self.CameraEvaluationIntervalMS) then
+        shouldEvaluate = true;
+    end
+
+    if shouldEvaluate then
+        self.CameraEvaluationTimer:Reset();
+        local position, score, actor = self:FindBestCombatFocus(team1Actors, team2Actors);
+
+        if position and (
+            not self.CameraHasFocus
+            or not currentFocusValid
+            or self.CameraHoldTimer:IsPastSimMS(self.CameraMinimumHoldMS)
+            and score >= self.CameraFocusScore * self.CameraSwitchThreshold
+        ) then
+            self.CameraFocusPosition = position;
+            self.CameraFocusScore = score;
+            self.CameraFocusActor = actor;
+            self.CameraHoldTimer:Reset();
+            self.CameraHasFocus = true;
+        end
+    end
+
+    if self.CameraHasFocus and self.CameraFocusPosition then
+        self:SetObservationTarget(self.CameraFocusPosition, Activity.PLAYER_1);
+    else
+        self:SetObservationTarget(self.CameraPos, Activity.PLAYER_1);
+    end
 end
 
 
@@ -331,103 +459,7 @@ function SpectatorArena:UpdateActivity()
     end
 
 
-    -- Find the actual contact point.
-    --
-    -- We make NO assumptions about left/right movement.
-    -- The winning pair is simply the two opposing soldiers
-    -- with the smallest ordinary map-space distance.
-
-    local followActor = nil;
-    local closestEnemy = nil;
-
-    -- Spectator-interest selection.
-    --
-    -- Do NOT simply pick the mathematically closest opposing pair:
-    -- that can lock the camera onto an isolated 1-v-1 while the
-    -- main battle is happening elsewhere.
-    --
-    -- Instead, score every living soldier by how many enemies are
-    -- near them. This favors the densest active firefight.
-
-    local combatRadius = 260;
-    local combatRadiusSquared = combatRadius * combatRadius;
-
-    local bestEnemyCount = -1;
-    local bestNearestDistance = math.huge;
-
-    local allActors = {};
-
-    for _, actor in ipairs(team1Actors) do
-        table.insert(allActors, actor);
-    end
-
-    for _, actor in ipairs(team2Actors) do
-        table.insert(allActors, actor);
-    end
-
-    for _, candidate in ipairs(allActors) do
-        local nearbyEnemies = 0;
-        local nearestEnemyDistance = math.huge;
-        local nearestEnemy = nil;
-
-        local enemies = team2Actors;
-
-        if candidate.Team == self.Team2 then
-            enemies = team1Actors;
-        end
-
-        for _, enemy in ipairs(enemies) do
-            -- Use Cortex Command's wrapped scene distance.
-            -- On horizontally wrapping maps, soldiers can be visually
-            -- beside each other even when their raw X coordinates are
-            -- near opposite ends of the scene.
-            local distanceVector = SceneMan:ShortestDistance(
-                candidate.Pos,
-                enemy.Pos,
-                SceneMan.SceneWrapsX
-            );
-
-            local distanceSquared =
-                (distanceVector.X * distanceVector.X) +
-                (distanceVector.Y * distanceVector.Y);
-
-            if distanceSquared <= combatRadiusSquared then
-                nearbyEnemies = nearbyEnemies + 1;
-            end
-
-            if distanceSquared < nearestEnemyDistance then
-                nearestEnemyDistance = distanceSquared;
-                nearestEnemy = enemy;
-            end
-        end
-
-        if nearbyEnemies > bestEnemyCount
-            or (
-                nearbyEnemies == bestEnemyCount
-                and nearestEnemyDistance < bestNearestDistance
-            ) then
-
-            bestEnemyCount = nearbyEnemies;
-            bestNearestDistance = nearestEnemyDistance;
-
-            followActor = candidate;
-            closestEnemy = nearestEnemy;
-        end
-    end
-
-
-    if followActor then
-
-        self:SetObservationTarget(
-            followActor.Pos,
-            Activity.PLAYER_1
-        );
-    else
-        self:SetObservationTarget(
-            self.CameraPos,
-            Activity.PLAYER_1
-        );
-    end
+    self:UpdateCameraDirector(team1Actors, team2Actors);
 
 
     if self.RoundOver then

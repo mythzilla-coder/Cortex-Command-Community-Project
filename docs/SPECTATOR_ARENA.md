@@ -46,6 +46,14 @@ BOOT -> PREPARE_ROUND -> SPAWN_TEAMS -> BATTLE
 - `ROUND_RESULT`: resolve a winner/draw once, incrementing score at most once.
 - `ROUND_RESET`: remove only the previous round’s team actors, then spawn the next round.
 
+## Camera Director v1
+
+During `BATTLE`, `UpdateCameraDirector` evaluates candidate focus areas every `500` ms. Each living actor is scored against nearby opposing actors within a 260-pixel combat radius: multiple nearby enemies dominate the score, with proximity providing a tie-break contribution. The selected focus is the midpoint between the best opposing pair, so the viewer sees the interaction rather than an arbitrary soldier.
+
+The director holds a focus for at least `1500` ms and only switches when a new score is at least `1.25x` the current score, unless the current anchor has disappeared. This limits jitter while still recovering cleanly when a target dies. If one side has only one living actor, that candidate receives a strong priority bonus. Outside `BATTLE`, combat scoring is disabled: result framing holds the last meaningful focus, while preparation/reset framing returns to the deterministic scene center.
+
+The centralized controls are `CameraEvaluationIntervalMS`, `CameraMinimumHoldMS`, and `CameraSwitchThreshold`. Fallback priority is strongest opposing interaction, nearest opposing pair, any living combatant, then the scene center. Existing Cortex Command observation-target smoothing remains responsible for the final camera movement.
+
 ## Winner and score logic
 
 The first team with no living actors loses. If both teams are eliminated, the result is a draw. `RoundOver` prevents duplicate results, score increments, or reset operations. The score remains cumulative for the life of the activity.
@@ -62,7 +70,7 @@ The round reset removes surviving team actors without creating artificial gibs, 
 
 ## Verification and known issues
 
-The source was rebuilt as `Debug Release|x64` and fresh launches were tested for this milestone. The direct-launch log confirmed `Ketanot Hills` and `Spectator Arena`; normal combat logs confirmed battle arming and automatic round progression. A deterministic short-timeout watchdog run confirmed one timeout, one result, reset, and subsequent round starts.
+The source was rebuilt as `Debug Release|x64` and a fresh process completed four normal rounds and armed a fifth. The direct-launch log confirmed `Ketanot Hills` and `Spectator Arena`; lifecycle logs confirmed battle arming, result, reset, and automatic progression. The camera implementation was exercised by the live activity, but this desktop’s window-capture path did not expose the hardware-rendered game frame for independent visual confirmation; a visual camera review remains recommended on a normal display/recording setup. The existing deterministic short-timeout watchdog run confirmed one timeout, one result, reset, and subsequent round starts.
 
 The runtime still emits an empty-scene-preset warning before successfully loading `Ketanot Hills`, plus repeated sound-device initialization warnings. These are known warnings and are separate from the Lua lifecycle changes. The historical checkpoint/tag `spectator-soak-2026-08-31` remains unchanged.
 
