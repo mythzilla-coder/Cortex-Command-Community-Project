@@ -1,71 +1,192 @@
+function TurnBasedSkirmish:CreateFactionSoldier(factionName)
+    local moduleID = PresetMan:GetModuleID(factionName);
+
+    local actorGroups = {
+        "Actors",
+        "Actors - Light",
+        "Actors - Heavy"
+    };
+
+    local actor = nil;
+
+    -- Try several random infantry classes, but only accept an actor
+    -- actually belonging to the selected faction.
+    for attempt = 1, 20 do
+        local group =
+            actorGroups[math.random(1, #actorGroups)];
+
+        local candidate =
+            RandomAHuman(group, factionName);
+
+        if candidate then
+            if candidate.ModuleID == moduleID then
+                actor = candidate;
+                break;
+            else
+                DeleteEntity(candidate);
+            end
+        end
+    end
+
+    -- Conservative fallback within the same faction.
+    if not actor then
+        for attempt = 1, 20 do
+            local candidate =
+                RandomAHuman("Actors", factionName);
+
+            if candidate then
+                if candidate.ModuleID == moduleID then
+                    actor = candidate;
+                    break;
+                else
+                    DeleteEntity(candidate);
+                end
+            end
+        end
+    end
+
+    if not actor then
+        return nil;
+    end
+
+
+    local weaponGroups = {
+        "Weapons - Primary",
+        "Weapons - Light",
+        "Weapons - Heavy",
+        "Weapons - Sniper",
+        "Weapons - Secondary"
+    };
+
+    local weapon = nil;
+
+    -- Give every soldier one random firearm from its own faction.
+    for attempt = 1, 30 do
+        local group =
+            weaponGroups[math.random(1, #weaponGroups)];
+
+        local candidate =
+            RandomHDFirearm(group, factionName);
+
+        if candidate then
+            if candidate.ModuleID == moduleID then
+                weapon = candidate;
+                break;
+            else
+                DeleteEntity(candidate);
+            end
+        end
+    end
+
+    if weapon then
+        actor:AddInventoryItem(weapon);
+    end
+
+    return actor;
+end
+
+
 function TurnBasedSkirmish:SpawnRound()
     self.RoundOver = false;
     self.BattleStarted = false;
-    self.WinnerTeam = Activity.NOTEAM;
+    self.RoundResultText = "";
 
-    self.Team1Actors = {};
-    self.Team2Actors = {};
+    self.RoundNumber = self.RoundNumber + 1;
 
-    local sceneWidth = SceneMan.SceneWidth;
+    self.FactionPool = {
+        "Coalition.rte",
+        "Ronin.rte",
+        "Dummy.rte",
+        "Imperatus.rte",
+        "Techion.rte",
+        "Browncoats.rte"
+    };
+
+    self.Team1Faction =
+        self.FactionPool[
+            math.random(1, #self.FactionPool)
+        ];
+
+    repeat
+        self.Team2Faction =
+            self.FactionPool[
+                math.random(1, #self.FactionPool)
+            ];
+    until self.Team2Faction ~= self.Team1Faction;
+
+
+    local team1X =
+        SceneMan.SceneWidth * 0.20;
+
+    local team2X =
+        SceneMan.SceneWidth * 0.80;
+
 
     for i = 1, 8 do
-        local actor = CreateAHuman("Soldier Heavy", "Base.rte");
+        local actor =
+            self:CreateFactionSoldier(
+                self.Team1Faction
+            );
 
         if actor then
             actor.Team = self.Team1;
 
-            local x = math.floor(sceneWidth * 0.20) + ((i - 1) * 25);
-            actor.Pos = SceneMan:MovePointToGround(Vector(x, 0), 0, 0);
-
-            local weapon = CreateHDFirearm("Coalition/Assault Rifle");
-            if weapon then
-                actor:AddInventoryItem(weapon);
-            end
-
-            actor:ClearAIWaypoints();
-            actor:AddAISceneWaypoint(
-                Vector(sceneWidth * 0.70, actor.Pos.Y)
+            actor.Pos = Vector(
+                team1X + ((i - 1) * 18),
+                50
             );
+
+            actor:AddAISceneWaypoint(
+                Vector(
+                    SceneMan.SceneWidth * 0.80,
+                    SceneMan.SceneHeight * 0.50
+                )
+            );
+
             actor.AIMode = Actor.AIMODE_GOTO;
 
             MovableMan:AddActor(actor);
-            table.insert(self.Team1Actors, actor);
         end
     end
 
+
     for i = 1, 8 do
-        local actor = CreateAHuman("Soldier Heavy", "Base.rte");
+        local actor =
+            self:CreateFactionSoldier(
+                self.Team2Faction
+            );
 
         if actor then
             actor.Team = self.Team2;
 
-            local x = math.floor(sceneWidth * 0.80) - ((i - 1) * 25);
-            actor.Pos = SceneMan:MovePointToGround(Vector(x, 0), 0, 0);
-
-            local weapon = CreateHDFirearm("Coalition/Assault Rifle");
-            if weapon then
-                actor:AddInventoryItem(weapon);
-            end
-
-            actor:ClearAIWaypoints();
-            actor:AddAISceneWaypoint(
-                Vector(sceneWidth * 0.30, actor.Pos.Y)
+            actor.Pos = Vector(
+                team2X - ((i - 1) * 18),
+                50
             );
+
+            actor:AddAISceneWaypoint(
+                Vector(
+                    SceneMan.SceneWidth * 0.20,
+                    SceneMan.SceneHeight * 0.50
+                )
+            );
+
             actor.AIMode = Actor.AIMODE_GOTO;
 
             MovableMan:AddActor(actor);
-            table.insert(self.Team2Actors, actor);
         end
     end
 
-    self.RoundNumber = self.RoundNumber + 1;
 
     print(
-        "TurnBasedSkirmish: starting round " ..
-        tostring(self.RoundNumber)
+        "TurnBasedSkirmish: round " ..
+        tostring(self.RoundNumber) ..
+        " | " ..
+        self.Team1Faction ..
+        " vs " ..
+        self.Team2Faction
     );
 end
-
 
 function TurnBasedSkirmish:ClearRoundActors()
     local actorsToRemove = {};
@@ -103,11 +224,11 @@ function TurnBasedSkirmish:FinishRound(winner)
 
     if winner == self.Team1 then
         self.Team1Score = self.Team1Score + 1;
-        self.RoundResultText = "TEAM 1 WINS";
+        self.RoundResultText = string.upper(string.gsub(self.Team1Faction or "TEAM 1", "%.rte$", "")) .. " WINS";
 
     elseif winner == self.Team2 then
         self.Team2Score = self.Team2Score + 1;
-        self.RoundResultText = "TEAM 2 WINS";
+        self.RoundResultText = string.upper(string.gsub(self.Team2Faction or "TEAM 2", "%.rte$", "")) .. " WINS";
 
     else
         self.RoundResultText = "DRAW";
@@ -299,10 +420,19 @@ function TurnBasedSkirmish:UpdateActivity()
     end
 
 
+    local team1FactionName =
+        string.gsub(self.Team1Faction or "TEAM 1", "%.rte$", "");
+
+    local team2FactionName =
+        string.gsub(self.Team2Faction or "TEAM 2", "%.rte$", "");
+
     FrameMan:SetScreenText(
         "ROUND " .. tostring(self.RoundNumber) ..
-        " | TEAM 1: " .. tostring(team1Alive) ..
-        " | TEAM 2: " .. tostring(team2Alive) ..
+        " | " .. string.upper(team1FactionName) ..
+        " " .. tostring(team1Alive) ..
+        " vs " ..
+        string.upper(team2FactionName) ..
+        " " .. tostring(team2Alive) ..
         " | SCORE " ..
         tostring(self.Team1Score) ..
         " - " ..
