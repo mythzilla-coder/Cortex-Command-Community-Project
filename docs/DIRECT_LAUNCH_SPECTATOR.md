@@ -36,3 +36,7 @@ The executable was allowed to run unattended for multiple minutes on repeated fr
 ## Distribution recommendation
 
 Keep the source startup selection in Git. Do not commit `Userdata/Settings.ini`; it is user/runtime state. A distribution package may include the four settings as a convenience, but the source-controlled startup path is the reproducible requirement for the dedicated spectator executable.
+
+## Current camera review
+
+The current Camera Director can find active combat, but its midpoint focus is not always as readable as the earlier soldier-centered behavior. The planned correction is a hybrid policy: soldier-following remains the default, with occasional, stability-limited switches to a stronger combat point of interest. See `docs/HANDOFF_CAMERA_HYBRID_REVIEW.md` before implementing that revision.

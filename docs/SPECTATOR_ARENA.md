@@ -54,6 +54,10 @@ The director holds a focus for at least `1500` ms and only switches when a new s
 
 The centralized controls are `CameraEvaluationIntervalMS`, `CameraMinimumHoldMS`, and `CameraSwitchThreshold`. Fallback priority is strongest opposing interaction, nearest opposing pair, any living combatant, then the scene center. Existing Cortex Command observation-target smoothing remains responsible for the final camera movement.
 
+### Camera behavior review / next revision
+
+Live review found that the cluster midpoint can sometimes be less useful than the earlier reliable soldier-centered view. The next revision should therefore use a hybrid policy: follow a valid living soldier by default, periodically evaluate combat points of interest, switch to a clearly stronger point of interest only occasionally, hold it briefly, and return to a valid soldier when the point of interest is no longer useful or its anchor disappears. This preserves the dependable soldier basis while still showing meaningful action. No code change is included yet; see `docs/HANDOFF_CAMERA_HYBRID_REVIEW.md` for the implementation handoff.
+
 ## Winner and score logic
 
 The first team with no living actors loses. If both teams are eliminated, the result is a draw. `RoundOver` prevents duplicate results, score increments, or reset operations. The score remains cumulative for the life of the activity.
@@ -80,7 +84,7 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 
 Next priorities are:
 
-1. camera director
+1. hybrid soldier-follow / point-of-interest camera revision
 2. stream-facing HUD
 3. configurable teams/loadouts
 4. longer-duration soak testing
