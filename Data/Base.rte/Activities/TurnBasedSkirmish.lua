@@ -1,4 +1,4 @@
-﻿function TurnBasedSkirmish:SpawnRound()
+function TurnBasedSkirmish:SpawnRound()
     self.RoundOver = false;
     self.BattleStarted = false;
     self.WinnerTeam = Activity.NOTEAM;
@@ -154,36 +154,108 @@ function TurnBasedSkirmish:UpdateActivity()
     local team1Alive = 0;
     local team2Alive = 0;
 
-    local followActor = nil;
-    local bestDistance = math.huge;
-    local sceneCenter = Vector(
-        SceneMan.SceneWidth * 0.5,
-        SceneMan.SceneHeight * 0.5
-    );
+    local team1Actors = {};
+    local team2Actors = {};
 
     for actor in MovableMan.Actors do
         if actor.Team == self.Team1 then
             team1Alive = team1Alive + 1;
+            table.insert(team1Actors, actor);
 
         elseif actor.Team == self.Team2 then
             team2Alive = team2Alive + 1;
-        end
-
-        if actor.Team == self.Team1 or actor.Team == self.Team2 then
-            local distance = SceneMan:ShortestDistance(
-                actor.Pos,
-                sceneCenter,
-                SceneMan.SceneWrapsX
-            ).Magnitude;
-
-            if distance < bestDistance then
-                bestDistance = distance;
-                followActor = actor;
-            end
+            table.insert(team2Actors, actor);
         end
     end
 
+
+    -- Find the actual contact point.
+    --
+    -- We make NO assumptions about left/right movement.
+    -- The winning pair is simply the two opposing soldiers
+    -- with the smallest ordinary map-space distance.
+
+    local followActor = nil;
+    local closestEnemy = nil;
+
+    -- Spectator-interest selection.
+    --
+    -- Do NOT simply pick the mathematically closest opposing pair:
+    -- that can lock the camera onto an isolated 1-v-1 while the
+    -- main battle is happening elsewhere.
+    --
+    -- Instead, score every living soldier by how many enemies are
+    -- near them. This favors the densest active firefight.
+
+    local combatRadius = 260;
+    local combatRadiusSquared = combatRadius * combatRadius;
+
+    local bestEnemyCount = -1;
+    local bestNearestDistance = math.huge;
+
+    local allActors = {};
+
+    for _, actor in ipairs(team1Actors) do
+        table.insert(allActors, actor);
+    end
+
+    for _, actor in ipairs(team2Actors) do
+        table.insert(allActors, actor);
+    end
+
+    for _, candidate in ipairs(allActors) do
+        local nearbyEnemies = 0;
+        local nearestEnemyDistance = math.huge;
+        local nearestEnemy = nil;
+
+        local enemies = team2Actors;
+
+        if candidate.Team == self.Team2 then
+            enemies = team1Actors;
+        end
+
+        for _, enemy in ipairs(enemies) do
+            -- Use Cortex Command's wrapped scene distance.
+            -- On horizontally wrapping maps, soldiers can be visually
+            -- beside each other even when their raw X coordinates are
+            -- near opposite ends of the scene.
+            local distanceVector = SceneMan:ShortestDistance(
+                candidate.Pos,
+                enemy.Pos,
+                SceneMan.SceneWrapsX
+            );
+
+            local distanceSquared =
+                (distanceVector.X * distanceVector.X) +
+                (distanceVector.Y * distanceVector.Y);
+
+            if distanceSquared <= combatRadiusSquared then
+                nearbyEnemies = nearbyEnemies + 1;
+            end
+
+            if distanceSquared < nearestEnemyDistance then
+                nearestEnemyDistance = distanceSquared;
+                nearestEnemy = enemy;
+            end
+        end
+
+        if nearbyEnemies > bestEnemyCount
+            or (
+                nearbyEnemies == bestEnemyCount
+                and nearestEnemyDistance < bestNearestDistance
+            ) then
+
+            bestEnemyCount = nearbyEnemies;
+            bestNearestDistance = nearestEnemyDistance;
+
+            followActor = candidate;
+            closestEnemy = nearestEnemy;
+        end
+    end
+
+
     if followActor then
+
         self:SetObservationTarget(
             followActor.Pos,
             Activity.PLAYER_1
