@@ -101,6 +101,10 @@ namespace RTE {
 		/// @return Whether the game is set to launch directly into the set default Activity or not.
 		bool IsSetToLaunchIntoActivity() const { return m_LaunchIntoActivity; }
 
+		/// Sets whether the application should skip the intro and menu and launch the configured default Activity.
+		/// @param launchIntoActivity Whether to launch the configured default Activity directly.
+		void SetLaunchIntoActivity(bool launchIntoActivity) { m_LaunchIntoActivity = launchIntoActivity; }
+
 		/// Gets whether the intro and main menu should be skipped on game start and launch directly into the set editor Activity instead.
 		/// @return Whether the game is set to launch directly into the set editor Activity or not.
 		bool IsSetToLaunchIntoEditor() const { return m_LaunchIntoEditor; }

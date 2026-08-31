@@ -445,6 +445,14 @@ int main(int argc, char** argv) {
 
 	g_PresetMan.LoadAllDataModules();
 
+	// This fork is distributed as a dedicated autonomous spectator executable.
+	// Keep the normal menu systems loaded for rollback, but select the proven
+	// spectator Activity through ActivityMan's existing direct-launch path.
+	g_ActivityMan.SetDefaultActivityType("GAScripted");
+	g_ActivityMan.SetDefaultActivityName("Turn Based Skirmish");
+	g_SceneMan.SetDefaultSceneName("Ketanot Hills");
+	g_ActivityMan.SetLaunchIntoActivity(true);
+
 	if (!System::IsInExternalModuleValidationMode()) {
 		// Load the different input device icons. This can't be done during UInputMan::Create() because the icon presets don't exist so we need to do this after modules are loaded.
 		g_UInputMan.LoadDeviceIcons();
