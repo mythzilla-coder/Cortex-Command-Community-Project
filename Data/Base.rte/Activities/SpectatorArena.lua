@@ -96,6 +96,7 @@ function SpectatorArena:SpawnRound()
 
     self.AISpawnSettleTimer:Reset();
     self.AISpawnSettled = false;
+    self.AIReleasedActors = {};
     self.AIDistributedTargetTimer:Reset();
 
     -- Actor UniqueIDs and routes belong only to this round.
@@ -214,7 +215,16 @@ function SpectatorArena:AssignDistributedMovingTargets(
     local livingEnemies = {};
 
     for _, actor in ipairs(actors) do
-        if MovableMan:IsActor(actor) and not actor:IsDead() then
+        if MovableMan:IsActor(actor)
+            and not actor:IsDead()
+            and (
+                not self.AITouchdownGateActive
+                or (
+                    self.AIReleasedActors
+                    and self.AIReleasedActors[actor.UniqueID]
+                )
+            )
+        then
             table.insert(livingActors, actor);
         end
     end
@@ -310,34 +320,118 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
         return;
     end
 
-    if not self.AISpawnSettleTimer:IsPastSimMS(
-        self.AISpawnSettleDelayMS
-    ) then
-        return;
+    local function releaseLandedActors(
+        arena,
+        actors,
+        enemies
+    )
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor)
+                and not actor:IsDead()
+                and not arena.AIReleasedActors[actor.UniqueID]
+            then
+                -- Probe from actor center toward the feet.
+                -- Ground contact should put terrain within roughly
+                -- half an actor-height below the center.
+                local probeDistance =
+                    math.max(
+                        18,
+                        actor.Height * 0.70
+                    );
+
+                local groundDistance =
+                    SceneMan:CastObstacleRay(
+                        actor.Pos,
+                        Vector(0, probeDistance),
+                        Vector(),
+                        Vector(),
+                        actor.ID,
+                        actor.IgnoresWhichTeam,
+                        rte.grassID,
+                        3
+                    );
+
+                -- Require both terrain under the actor and a mostly
+                -- settled vertical velocity. This prevents releasing
+                -- somebody merely because they pass close to a slope
+                -- while still falling quickly.
+                local touchedGround =
+                    groundDistance >= 0
+                    and math.abs(actor.Vel.Y) <= 3;
+
+                if touchedGround then
+                    arena.AIReleasedActors[actor.UniqueID] =
+                        true;
+
+                    arena:AssignDistributedMovingTargets(
+                        { actor },
+                        enemies,
+                        true
+                    );
+
+                    print(
+                        "SpectatorArena: AI_TOUCHDOWN_RELEASE actor="
+                        .. tostring(actor.UniqueID)
+                        .. " velY="
+                        .. tostring(actor.Vel.Y)
+                        .. " groundDistance="
+                        .. tostring(groundDistance)
+                    );
+                else
+                    -- Absolutely no pursuit before first touchdown.
+                    actor:ClearAIWaypoints();
+                    actor.AIMode = Actor.AIMODE_SENTRY;
+                end
+            end
+        end
     end
 
-    -- V10:
-    -- actors have landed in SENTRY mode. Give each survivor a
-    -- specific moving enemy target using the same AddAIMOWaypoint
-    -- pattern used by stock Cortex activities.
-    self:AssignDistributedMovingTargets(
+    releaseLandedActors(
+        self,
         team1Actors,
+        team2Actors
+    );
+
+    releaseLandedActors(
+        self,
         team2Actors,
-        true
+        team1Actors
     );
 
-    self:AssignDistributedMovingTargets(
-        team2Actors,
-        team1Actors,
-        true
-    );
+    local livingActorCount = 0;
+    local releasedActorCount = 0;
 
-    self.AISpawnSettled = true;
-    self.AIDistributedTargetTimer:Reset();
+    local function countTeam(arena, actors)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor)
+                and not actor:IsDead()
+            then
+                livingActorCount =
+                    livingActorCount + 1;
 
-    print(
-        "SpectatorArena: AI_SPAWN_RELEASE DISTRIBUTED_GOTO"
-    );
+                if arena.AIReleasedActors[actor.UniqueID] then
+                    releasedActorCount =
+                        releasedActorCount + 1;
+                end
+            end
+        end
+    end
+
+    countTeam(self, team1Actors);
+    countTeam(self, team2Actors);
+
+    if livingActorCount > 0
+        and releasedActorCount == livingActorCount
+    then
+        self.AISpawnSettled = true;
+        self.AIDistributedTargetTimer:Reset();
+
+        print(
+            "SpectatorArena: AI_TOUCHDOWN_ALL_RELEASED"
+            .. " living="
+            .. tostring(livingActorCount)
+        );
+    end
 end
 
 function SpectatorArena:ClearRoundActors()
@@ -465,6 +559,8 @@ function SpectatorArena:StartActivity()
     self.AISpawnSettleDelayMS = 1500;
     self.AISpawnSettleTimer = Timer();
     self.AISpawnSettled = false;
+    self.AITouchdownGateActive = true;
+    self.AIReleasedActors = {};
 
     -- V10 distributed moving-target experiment.
     self.AIDistributedTargetTimer = Timer();
