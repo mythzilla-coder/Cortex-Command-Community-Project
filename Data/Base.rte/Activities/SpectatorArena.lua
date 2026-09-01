@@ -96,6 +96,7 @@ function SpectatorArena:SpawnRound()
 
     self.AISpawnSettleTimer:Reset();
     self.AISpawnSettled = false;
+    self.AIDistributedTargetTimer:Reset();
 
     -- Actor UniqueIDs and routes belong only to this round.
     self.AIPursuitTargets = {};
@@ -204,6 +205,106 @@ function SpectatorArena:SpawnRound()
     );
 end
 
+function SpectatorArena:AssignDistributedMovingTargets(
+    actors,
+    enemies,
+    forceRefresh
+)
+    local livingActors = {};
+    local livingEnemies = {};
+
+    for _, actor in ipairs(actors) do
+        if MovableMan:IsActor(actor) and not actor:IsDead() then
+            table.insert(livingActors, actor);
+        end
+    end
+
+    for _, enemy in ipairs(enemies) do
+        if MovableMan:IsActor(enemy) and not enemy:IsDead() then
+            table.insert(livingEnemies, enemy);
+        end
+    end
+
+    if #livingEnemies == 0 then
+        return;
+    end
+
+    -- Stable spatial ordering helps spread nearby soldiers across
+    -- different enemy targets instead of having all actors select
+    -- the same easiest BrainSearch destination.
+    table.sort(
+        livingActors,
+        function(a, b)
+            return a.Pos.X < b.Pos.X;
+        end
+    );
+
+    table.sort(
+        livingEnemies,
+        function(a, b)
+            return a.Pos.X < b.Pos.X;
+        end
+    );
+
+    for index, actor in ipairs(livingActors) do
+        local currentTarget = actor.MOMoveTarget;
+
+        local targetInvalid =
+            not currentTarget
+            or not MovableMan:IsActor(currentTarget)
+            or currentTarget.Team == actor.Team;
+
+        if forceRefresh or targetInvalid then
+            local enemyIndex =
+                ((index - 1) % #livingEnemies) + 1;
+
+            local target =
+                livingEnemies[enemyIndex];
+
+            actor:ClearAIWaypoints();
+            actor:AddAIMOWaypoint(target);
+            actor.AIMode = Actor.AIMODE_GOTO;
+
+            print(
+                "SpectatorArena: AI_DISTRIBUTED_TARGET actor="
+                .. tostring(actor.UniqueID)
+                .. " target="
+                .. tostring(target.UniqueID)
+            );
+        end
+    end
+end
+
+
+function SpectatorArena:UpdateDistributedMovingTargets(
+    team1Actors,
+    team2Actors
+)
+    if self.State ~= "BATTLE" then
+        return;
+    end
+
+    if not self.AIDistributedTargetTimer:IsPastSimMS(
+        self.AIDistributedTargetRefreshMS
+    ) then
+        return;
+    end
+
+    self.AIDistributedTargetTimer:Reset();
+
+    self:AssignDistributedMovingTargets(
+        team1Actors,
+        team2Actors,
+        false
+    );
+
+    self:AssignDistributedMovingTargets(
+        team2Actors,
+        team1Actors,
+        false
+    );
+end
+
 function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
     if self.AISpawnSettled then
         return;
@@ -215,22 +316,27 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
         return;
     end
 
-    local function releaseTeam(actors)
-        for _, actor in ipairs(actors) do
-            if MovableMan:IsActor(actor) and not actor:IsDead() then
-                actor:ClearAIWaypoints();
-                actor.AIMode = Actor.AIMODE_BRAINHUNT;
-            end
-        end
-    end
+    -- V10:
+    -- actors have landed in SENTRY mode. Give each survivor a
+    -- specific moving enemy target using the same AddAIMOWaypoint
+    -- pattern used by stock Cortex activities.
+    self:AssignDistributedMovingTargets(
+        team1Actors,
+        team2Actors,
+        true
+    );
 
-    releaseTeam(team1Actors);
-    releaseTeam(team2Actors);
+    self:AssignDistributedMovingTargets(
+        team2Actors,
+        team1Actors,
+        true
+    );
 
     self.AISpawnSettled = true;
+    self.AIDistributedTargetTimer:Reset();
 
     print(
-        "SpectatorArena: AI_SPAWN_RELEASE BRAINHUNT"
+        "SpectatorArena: AI_SPAWN_RELEASE DISTRIBUTED_GOTO"
     );
 end
 
@@ -359,6 +465,10 @@ function SpectatorArena:StartActivity()
     self.AISpawnSettleDelayMS = 1500;
     self.AISpawnSettleTimer = Timer();
     self.AISpawnSettled = false;
+
+    -- V10 distributed moving-target experiment.
+    self.AIDistributedTargetTimer = Timer();
+    self.AIDistributedTargetRefreshMS = 2000;
 
     -- TEMPORARY dynamic-pursuit experiment.
     self.AIRetargetIntervalMS = 6000;
@@ -686,17 +796,15 @@ function SpectatorArena:UpdateDynamicPursuit(team1Actors, team2Actors)
 end
 
 function SpectatorArena:ForceCombatPressurePursuit(actors, enemies)
-    for _, actor in ipairs(actors) do
-        if MovableMan:IsActor(actor) and not actor:IsDead() then
-            actor:ClearAIWaypoints();
-            actor.AIMode = Actor.AIMODE_BRAINHUNT;
+    self:AssignDistributedMovingTargets(
+        actors,
+        enemies,
+        true
+    );
 
-            print(
-                "SpectatorArena: AI_BRAINHUNT_WAKE actor="
-                .. tostring(actor.UniqueID)
-            );
-        end
-    end
+    print(
+        "SpectatorArena: AI_DISTRIBUTED_PRESSURE_REFRESH"
+    );
 end
 
 function SpectatorArena:HasMeaningfulCombatFire(team1Actors, team2Actors)
@@ -972,6 +1080,11 @@ function SpectatorArena:UpdateActivity()
     -- V7 BRAINHUNT BASELINE:
     -- periodic GOTO retargeting disabled for this experiment.
     -- Native BRAINHUNT owns normal movement/combat.
+
+    self:UpdateDistributedMovingTargets(
+        team1Actors,
+        team2Actors
+    );
 
     self:UpdateCombatPressure(
         team1Actors,
