@@ -325,6 +325,8 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
         actors,
         enemies
     )
+        local newlyReleased = false;
+
         for _, actor in ipairs(actors) do
             if MovableMan:IsActor(actor)
                 and not actor:IsDead()
@@ -352,9 +354,7 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                     );
 
                 -- Require both terrain under the actor and a mostly
-                -- settled vertical velocity. This prevents releasing
-                -- somebody merely because they pass close to a slope
-                -- while still falling quickly.
+                -- settled vertical velocity.
                 local touchedGround =
                     groundDistance >= 0
                     and math.abs(actor.Vel.Y) <= 3;
@@ -363,11 +363,7 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                     arena.AIReleasedActors[actor.UniqueID] =
                         true;
 
-                    arena:AssignDistributedMovingTargets(
-                        { actor },
-                        enemies,
-                        true
-                    );
+                    newlyReleased = true;
 
                     print(
                         "SpectatorArena: AI_TOUCHDOWN_RELEASE actor="
@@ -383,6 +379,37 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                     actor.AIMode = Actor.AIMODE_SENTRY;
                 end
             end
+        end
+
+        -- Whenever another actor touches down, redistribute all
+        -- currently released teammates together. This preserves
+        -- the touchdown gate while avoiding the one-actor target
+        -- assignment that made early landers converge on one enemy.
+        if newlyReleased then
+            local releasedActors = {};
+
+            for _, actor in ipairs(actors) do
+                if MovableMan:IsActor(actor)
+                    and not actor:IsDead()
+                    and arena.AIReleasedActors[actor.UniqueID]
+                then
+                    table.insert(
+                        releasedActors,
+                        actor
+                    );
+                end
+            end
+
+            arena:AssignDistributedMovingTargets(
+                releasedActors,
+                enemies,
+                true
+            );
+
+            print(
+                "SpectatorArena: AI_TOUCHDOWN_REDISTRIBUTE count="
+                .. tostring(#releasedActors)
+            );
         end
     end
 
