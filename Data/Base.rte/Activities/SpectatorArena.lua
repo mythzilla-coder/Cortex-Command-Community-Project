@@ -92,6 +92,21 @@ function SpectatorArena:SpawnRound()
     self.BattleStarted = false;
     self.RoundResultText = "";
     self.SpawnGraceTimer:Reset();
+    self.RoundElapsedTimer:Reset();
+
+    self.AISpawnSettleTimer:Reset();
+    self.AISpawnSettled = false;
+
+    -- Actor UniqueIDs and routes belong only to this round.
+    self.AIPursuitTargets = {};
+    self.AIPursuitProgress = {};
+    self.AIRetargetTimer:Reset();
+
+    self.AICombatPressureTimer:Reset();
+    self.AIPreviousTeam1Alive = nil;
+    self.AIPreviousTeam2Alive = nil;
+
+    self:ResetCameraDirector();
 
     self.RoundNumber = self.RoundNumber + 1;
 
@@ -133,19 +148,19 @@ function SpectatorArena:SpawnRound()
         if actor then
             actor.Team = self.Team1;
 
+            -- V8: recovered Spectator Mod dependency.
+            -- BRAINHUNT's BrainSearch requires enemy actors
+            -- exposed through the "Brains" group.
+            actor:AddToGroup("Brains");
+
             actor.Pos = Vector(
                 team1X + ((i - 1) * 18),
                 50
             );
 
-            actor:AddAISceneWaypoint(
-                Vector(
-                    SceneMan.SceneWidth * 0.80,
-                    SceneMan.SceneHeight * 0.50
-                )
-            );
-
-            actor.AIMode = Actor.AIMODE_GOTO;
+            -- V7 baseline based on recovered Spectator Mod:
+            -- offensive actors start directly in native hunt mode.
+            actor.AIMode = Actor.AIMODE_SENTRY;
 
             MovableMan:AddActor(actor);
         end
@@ -161,19 +176,18 @@ function SpectatorArena:SpawnRound()
         if actor then
             actor.Team = self.Team2;
 
+            -- V8: make this combatant a valid enemy
+            -- target for native BRAINHUNT BrainSearch.
+            actor:AddToGroup("Brains");
+
             actor.Pos = Vector(
                 team2X - ((i - 1) * 18),
                 50
             );
 
-            actor:AddAISceneWaypoint(
-                Vector(
-                    SceneMan.SceneWidth * 0.20,
-                    SceneMan.SceneHeight * 0.50
-                )
-            );
-
-            actor.AIMode = Actor.AIMODE_GOTO;
+            -- V7 baseline based on recovered Spectator Mod:
+            -- offensive actors start directly in native hunt mode.
+            actor.AIMode = Actor.AIMODE_SENTRY;
 
             MovableMan:AddActor(actor);
         end
@@ -187,6 +201,36 @@ function SpectatorArena:SpawnRound()
         self.Team1Faction ..
         " vs " ..
         self.Team2Faction
+    );
+end
+
+function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
+    if self.AISpawnSettled then
+        return;
+    end
+
+    if not self.AISpawnSettleTimer:IsPastSimMS(
+        self.AISpawnSettleDelayMS
+    ) then
+        return;
+    end
+
+    local function releaseTeam(actors)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor) and not actor:IsDead() then
+                actor:ClearAIWaypoints();
+                actor.AIMode = Actor.AIMODE_BRAINHUNT;
+            end
+        end
+    end
+
+    releaseTeam(team1Actors);
+    releaseTeam(team2Actors);
+
+    self.AISpawnSettled = true;
+
+    print(
+        "SpectatorArena: AI_SPAWN_RELEASE BRAINHUNT"
     );
 end
 
@@ -290,13 +334,95 @@ function SpectatorArena:StartActivity()
     self.RoundEndDelay = 3000;
     self.RoundEndTimer = Timer();
     self.RoundTimer = Timer();
+    self.RoundElapsedTimer = Timer();
+    -- Spectator Arena always runs at the engine-supported maximum.
+    -- These reproduce the maximum values exposed by the old setup menu:
+    -- Difficulty 100 / AI Skill "Unfair" 100.
+    self.Difficulty = Activity.MAXDIFFICULTY;
+    self:SetTeamAISkill(self.Team1, Activity.UNFAIRSKILL);
+    self:SetTeamAISkill(self.Team2, Activity.UNFAIRSKILL);
+
+    print(
+        "SpectatorArena: AI_CONFIG difficulty="
+        .. tostring(self.Difficulty)
+        .. " team1Skill="
+        .. tostring(self:GetTeamAISkill(self.Team1))
+        .. " team2Skill="
+        .. tostring(self:GetTeamAISkill(self.Team2))
+    );
+    -- Force absolute maximum AI settings for Spectator Arena.
+
     self.SpawnGraceDelayMS = 5000;
     self.SpawnGraceTimer = Timer();
-    self.CameraEvaluationIntervalMS = 500;
+
+    -- V9: let freshly spawned actors land before aggressive hunting.
+    self.AISpawnSettleDelayMS = 1500;
+    self.AISpawnSettleTimer = Timer();
+    self.AISpawnSettled = false;
+
+    -- TEMPORARY dynamic-pursuit experiment.
+    self.AIRetargetIntervalMS = 6000;
+    self.AIRetargetTimer = Timer();
+    self.AIPursuitTargets = {};
+    self.AIPursuitProgress = {};
+
+    -- Anti-stall thresholds.
+    -- Two bad 6-second samples = roughly 12 seconds without progress.
+    self.AIStallDistanceThreshold = 24;
+    self.AIStallSamplesBeforeRepath = 2;
+    self.AIStallRepathEnemyDistance = 320;
+
+    -- V5 global combat-pressure controller.
+    -- Prevent long spectator dead periods even when individual AI
+    -- technically considers its current state/path valid.
+    self.AICombatPressureTimer = Timer();
+    self.AICombatPressureNormalMS = 12000;
+    self.AICombatPressureLowSurvivorMS = 6000;
+    self.AICombatPressureCriticalMS = 4000;
+    self.AICombatActivityRange = 800;
+    self.AIPreviousTeam1Alive = nil;
+    self.AIPreviousTeam2Alive = nil;
+    self.CameraEvaluationIntervalMS = 250;
     self.CameraMinimumHoldMS = 1500;
     self.CameraSwitchThreshold = 1.25;
+    self.CameraSoldierMinimumHoldMS = 750;
+    self.CameraPOIMinimumHoldMS = 2500;
+    self.CameraPOIMaximumHoldMS = 3000;
+    self.CameraPOISwitchThreshold = 1.35;
+    self.CameraPOICooldownMS = 3500;
+    self.CameraRecentFireWindowMS = 400;
+    self.CameraEventHoldMS = 2000;
+    self.CameraEventCooldownMS = 4000;
+    self.CameraEventMinimumAimDot = 0.85;
+    self.CameraEventMinimumDistance = 180;
+    self.CameraEventMaximumRange = 1200;
+
+    -- TEMPORARY RAW CAMERA DIAGNOSTIC.
+    -- Bypasses normal timing/cooldown policy so selector behavior can be observed.
+    self.CameraRawDiagnosticMode = true;
+    self.CameraRawLastTargetType = nil;
+    self.CameraRawLastActorID = nil;
+    self.CameraRawLastEnemyID = nil;
+    self.CameraRawNextIdleTeam = 1;
+    self.CameraRawCurrentIdleTeam = nil;
+
     self.CameraEvaluationTimer = Timer();
     self.CameraHoldTimer = Timer();
+    self.CameraModeTimer = Timer();
+    self.CameraPOICooldownTimer = Timer();
+    self.CameraRecentFireTimer = Timer();
+    self.CameraEventCooldownTimer = Timer();
+    self.CameraPOICooldownReady = true;
+    self.CameraEventCooldownReady = true;
+    self.CameraMode = "CAMERA_CENTER";
+    self.CameraFollowActor = nil;
+    self.CameraPOIActor = nil;
+    self.CameraPOIEnemy = nil;
+    self.CameraEventLogic = require("Activities/SpectatorCameraEventLogic");
+    self.CameraLastShot = nil;
+    self.CameraTrackedActors = {};
+    self.CameraHandledVictims = {};
+    self.CameraEventPosition = nil;
     self.CameraFocusPosition = self.CameraPos;
     self.CameraFocusScore = 0;
     self.CameraFocusActor = nil;
@@ -310,6 +436,8 @@ function SpectatorArena:StartActivity()
         SceneMan.SceneWidth * 0.5,
         SceneMan.SceneHeight * 0.45
     );
+
+    self:ResetCameraDirector();
 
     self:SetObservationTarget(
         self.CameraPos,
@@ -357,9 +485,43 @@ function SpectatorArena:FindBestCombatFocus(team1Actors, team2Actors)
 
             if nearestEnemy then
                 local score = nearbyEnemies * 1000;
-                score = score + math.max(0, combatRadiusSquared - nearestEnemyDistance) / combatRadiusSquared;
 
-                -- Make a last-survivor engagement win over a larger but distant cluster.
+                -- Distance remains useful, but should not dominate actual combat activity.
+                local proximity =
+                    math.max(0, combatRadiusSquared - nearestEnemyDistance)
+                    / combatRadiusSquared;
+
+                score = score + (proximity * 250);
+
+                -- RAW ACTION-AWARE CAMERA TEST:
+                -- firing should outweigh passive actor density.
+                local candidateFiring = false;
+                local enemyFiring = false;
+
+                local candidateItem = candidate.EquippedItem;
+                if candidateItem and IsHDFirearm(candidateItem) then
+                    candidateFiring = ToHDFirearm(candidateItem).FiredFrame;
+                end
+
+                local enemyItem = nearestEnemy.EquippedItem;
+                if enemyItem and IsHDFirearm(enemyItem) then
+                    enemyFiring = ToHDFirearm(enemyItem).FiredFrame;
+                end
+
+                if candidateFiring then
+                    score = score + 5000;
+                end
+
+                if enemyFiring then
+                    score = score + 5000;
+                end
+
+                -- Two actors actively exchanging fire should be overwhelmingly preferred.
+                if candidateFiring and enemyFiring then
+                    score = score + 5000;
+                end
+
+                -- Preserve last-survivor importance.
                 if #candidates == 1 then
                     score = score + 750;
                 end
@@ -393,52 +555,270 @@ function SpectatorArena:FindBestCombatFocus(team1Actors, team2Actors)
         bestPosition = bestActor.Pos;
     end
 
-    return bestPosition, bestScore, bestActor;
+    return bestPosition, bestScore, bestActor, bestEnemy;
 end
 
 
-function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
-    if self.State ~= "BATTLE" then
-        if self.RoundOver and self.CameraFocusPosition then
-            self:SetObservationTarget(self.CameraFocusPosition, Activity.PLAYER_1);
-        else
-            self:SetObservationTarget(self.CameraPos, Activity.PLAYER_1);
+function SpectatorArena:FindNearestDirectEnemy(actor, enemies)
+    local bestEnemy = nil;
+    local bestDistanceSquared = math.huge;
+
+    for _, enemy in ipairs(enemies) do
+        if MovableMan:IsActor(enemy) and not enemy:IsDead() then
+            -- Deliberately direct/non-wrapped distance.
+            -- Ketanot Hills wraps horizontally, but spectator combat
+            -- should prefer the physically nearby opponent on screen.
+            local dx = enemy.Pos.X - actor.Pos.X;
+            local dy = enemy.Pos.Y - actor.Pos.Y;
+            local distanceSquared = (dx * dx) + (dy * dy);
+
+            if distanceSquared < bestDistanceSquared then
+                bestDistanceSquared = distanceSquared;
+                bestEnemy = enemy;
+            end
         end
+    end
+
+    return bestEnemy, bestDistanceSquared;
+end
+
+
+function SpectatorArena:UpdateDynamicPursuit(team1Actors, team2Actors)
+    if self.State ~= "BATTLE" then
         return;
     end
 
-    local currentFocusValid = self.CameraFocusActor and MovableMan:IsActor(self.CameraFocusActor);
-    local shouldEvaluate = not self.CameraHasFocus or not currentFocusValid;
-
-    if self.CameraEvaluationTimer:IsPastSimMS(self.CameraEvaluationIntervalMS) then
-        shouldEvaluate = true;
+    if not self.AIRetargetTimer:IsPastSimMS(self.AIRetargetIntervalMS) then
+        return;
     end
 
-    if shouldEvaluate then
-        self.CameraEvaluationTimer:Reset();
-        local position, score, actor = self:FindBestCombatFocus(team1Actors, team2Actors);
+    self.AIRetargetTimer:Reset();
 
-        if position and (
-            not self.CameraHasFocus
-            or not currentFocusValid
-            or self.CameraHoldTimer:IsPastSimMS(self.CameraMinimumHoldMS)
-            and score >= self.CameraFocusScore * self.CameraSwitchThreshold
-        ) then
-            self.CameraFocusPosition = position;
-            self.CameraFocusScore = score;
-            self.CameraFocusActor = actor;
-            self.CameraHoldTimer:Reset();
-            self.CameraHasFocus = true;
+    -- V4: detect whether actors are actually making progress
+    -- toward enemies instead of merely moving/shuffling.
+    local requiredProgress = 32;
+
+    local function retargetTeam(actors, enemies)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor) and not actor:IsDead() then
+                local enemy, enemyDistanceSquared =
+                    self:FindNearestDirectEnemy(actor, enemies);
+
+                if enemy then
+                    local actorID = actor.UniqueID;
+                    local enemyID = enemy.UniqueID;
+                    local enemyDistance =
+                        math.sqrt(enemyDistanceSquared);
+
+                    local previousTargetID =
+                        self.AIPursuitTargets[actorID];
+
+                    local progress =
+                        self.AIPursuitProgress[actorID];
+
+                    local targetChanged =
+                        previousTargetID ~= enemyID;
+
+                    if targetChanged or not progress then
+                        progress = {
+                            TargetID = enemyID,
+                            LastDistance = enemyDistance,
+                            StalledSamples = 0
+                        };
+
+                        self.AIPursuitProgress[actorID] = progress;
+                    else
+                        local distanceImprovement =
+                            progress.LastDistance - enemyDistance;
+
+                        if distanceImprovement < requiredProgress then
+                            progress.StalledSamples =
+                                progress.StalledSamples + 1;
+                        else
+                            progress.StalledSamples = 0;
+                        end
+
+                        progress.LastDistance = enemyDistance;
+                    end
+
+                    local stalled =
+                        progress.StalledSamples
+                            >= self.AIStallSamplesBeforeRepath;
+
+                    if targetChanged or stalled then
+                        local destination =
+                            SceneMan:MovePointToGround(
+                                Vector(enemy.Pos.X, enemy.Pos.Y),
+                                actor.Height * 0.5,
+                                4
+                            );
+
+                        actor:ClearAIWaypoints();
+                        actor:AddAISceneWaypoint(destination);
+                        actor.AIMode = Actor.AIMODE_GOTO;
+                        actor:UpdateMovePath();
+
+                        self.AIPursuitTargets[actorID] = enemyID;
+
+                        if stalled then
+                            print(
+                                "SpectatorArena: AI_STALL_REPATH actor="
+                                .. tostring(actorID)
+                                .. " target="
+                                .. tostring(enemyID)
+                                .. " distance="
+                                .. tostring(math.floor(enemyDistance))
+                                .. " no_progress"
+                            );
+                        end
+
+                        progress.TargetID = enemyID;
+                        progress.LastDistance = enemyDistance;
+                        progress.StalledSamples = 0;
+                    end
+                end
+            end
         end
     end
 
-    if self.CameraHasFocus and self.CameraFocusPosition then
-        self:SetObservationTarget(self.CameraFocusPosition, Activity.PLAYER_1);
-    else
-        self:SetObservationTarget(self.CameraPos, Activity.PLAYER_1);
+    retargetTeam(team1Actors, team2Actors);
+    retargetTeam(team2Actors, team1Actors);
+end
+
+function SpectatorArena:ForceCombatPressurePursuit(actors, enemies)
+    for _, actor in ipairs(actors) do
+        if MovableMan:IsActor(actor) and not actor:IsDead() then
+            actor:ClearAIWaypoints();
+            actor.AIMode = Actor.AIMODE_BRAINHUNT;
+
+            print(
+                "SpectatorArena: AI_BRAINHUNT_WAKE actor="
+                .. tostring(actor.UniqueID)
+            );
+        end
     end
 end
 
+function SpectatorArena:HasMeaningfulCombatFire(team1Actors, team2Actors)
+    local activityRangeSquared =
+        self.AICombatActivityRange * self.AICombatActivityRange;
+
+    local function teamHasCombatFire(actors, enemies)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor) and not actor:IsDead() then
+                local item = actor.EquippedItem;
+
+                if item and IsHDFirearm(item) then
+                    local firearm = ToHDFirearm(item);
+
+                    if firearm.FiredFrame then
+                        local enemy, enemyDistanceSquared =
+                            self:FindNearestDirectEnemy(actor, enemies);
+
+                        if enemy
+                            and enemyDistanceSquared
+                                <= activityRangeSquared then
+                            return true;
+                        end
+                    end
+                end
+            end
+        end
+
+        return false;
+    end
+
+    return
+        teamHasCombatFire(team1Actors, team2Actors)
+        or teamHasCombatFire(team2Actors, team1Actors);
+end
+
+
+function SpectatorArena:UpdateCombatPressure(
+    team1Actors,
+    team2Actors,
+    team1Alive,
+    team2Alive
+)
+    if self.State ~= "BATTLE" then
+        return;
+    end
+
+    local totalAlive = team1Alive + team2Alive;
+
+    if totalAlive <= 1 then
+        return;
+    end
+
+    -- V6: only an actual casualty counts as meaningful
+    -- round progress. Gunfire alone no longer suppresses
+    -- anti-stall pressure, because actors elsewhere may fire
+    -- while other survivors remain parked indefinitely.
+    local aliveCountChanged =
+        self.AIPreviousTeam1Alive ~= nil
+        and (
+            team1Alive ~= self.AIPreviousTeam1Alive
+            or team2Alive ~= self.AIPreviousTeam2Alive
+        );
+
+    self.AIPreviousTeam1Alive = team1Alive;
+    self.AIPreviousTeam2Alive = team2Alive;
+
+    if aliveCountChanged then
+        self.AICombatPressureTimer:Reset();
+
+        print(
+            "SpectatorArena: AI_COMBAT_PROGRESS"
+            .. " team1="
+            .. tostring(team1Alive)
+            .. " team2="
+            .. tostring(team2Alive)
+        );
+
+        return;
+    end
+
+    local pressureThresholdMS =
+        self.AICombatPressureNormalMS;
+
+    if totalAlive <= 3 then
+        pressureThresholdMS =
+            self.AICombatPressureCriticalMS;
+    elseif totalAlive <= 4 then
+        pressureThresholdMS =
+            self.AICombatPressureLowSurvivorMS;
+    end
+
+    if not self.AICombatPressureTimer:IsPastSimMS(
+        pressureThresholdMS
+    ) then
+        return;
+    end
+
+    print(
+        "SpectatorArena: AI_COMBAT_PRESSURE_HUNT"
+        .. " totalAlive="
+        .. tostring(totalAlive)
+        .. " team1="
+        .. tostring(team1Alive)
+        .. " team2="
+        .. tostring(team2Alive)
+        .. " thresholdMS="
+        .. tostring(pressureThresholdMS)
+    );
+
+    self:ForceCombatPressurePursuit(
+        team1Actors,
+        team2Actors
+    );
+
+    self:ForceCombatPressurePursuit(
+        team2Actors,
+        team1Actors
+    );
+
+    self.AICombatPressureTimer:Reset();
+end
 
 function SpectatorArena:UpdateActivity()
     local team1Alive = 0;
@@ -460,7 +840,10 @@ function SpectatorArena:UpdateActivity()
 
 
     self:UpdateCameraDirector(team1Actors, team2Actors);
-
+    self:UpdateSpawnSettle(
+        team1Actors,
+        team2Actors
+    );
 
     if self.RoundOver then
         FrameMan:SetScreenText(
@@ -493,8 +876,52 @@ function SpectatorArena:UpdateActivity()
     local team2FactionName =
         string.gsub(self.Team2Faction or "TEAM 2", "%.rte$", "");
 
+    local elapsedRoundSeconds =
+        math.floor(self.RoundElapsedTimer.ElapsedSimTimeMS / 1000);
+
+    local elapsedRoundMinutes =
+        math.floor(elapsedRoundSeconds / 60);
+
+    local elapsedRoundSecondsPart =
+        elapsedRoundSeconds % 60;
+
+    local elapsedRoundText =
+        string.format(
+            "%02d:%02d",
+            elapsedRoundMinutes,
+            elapsedRoundSecondsPart
+        );
+    local totalAliveForPressure =
+        team1Alive + team2Alive;
+
+    local pressureThresholdForHUD =
+        self.AICombatPressureNormalMS;
+
+    if totalAliveForPressure <= 3 then
+        pressureThresholdForHUD =
+            self.AICombatPressureCriticalMS;
+    elseif totalAliveForPressure <= 4 then
+        pressureThresholdForHUD =
+            self.AICombatPressureLowSurvivorMS;
+    end
+
+    local pressureElapsedSeconds =
+        math.floor(
+            self.AICombatPressureTimer.ElapsedSimTimeMS / 1000
+        );
+
+    local pressureThresholdSeconds =
+        math.floor(
+            pressureThresholdForHUD / 1000
+        );
+
     FrameMan:SetScreenText(
         "ROUND " .. tostring(self.RoundNumber) ..
+        " | TIME " .. elapsedRoundText ..
+        " | HUNT " ..
+        tostring(pressureElapsedSeconds) ..
+        "/" ..
+        tostring(pressureThresholdSeconds) ..
         " | " .. string.upper(team1FactionName) ..
         " " .. tostring(team1Alive) ..
         " vs " ..
@@ -540,6 +967,18 @@ function SpectatorArena:UpdateActivity()
         return;
     end
 
+    -- Navigation and anti-idle pressure run only after the
+    -- round has definitively entered BATTLE.
+    -- V7 BRAINHUNT BASELINE:
+    -- periodic GOTO retargeting disabled for this experiment.
+    -- Native BRAINHUNT owns normal movement/combat.
+
+    self:UpdateCombatPressure(
+        team1Actors,
+        team2Actors,
+        team1Alive,
+        team2Alive
+    );
     if self.RoundTimer:IsPastSimMS(self.MaxRoundDurationMS) then
         self:ResolveWatchdog(team1Alive, team2Alive);
         return;
@@ -563,4 +1002,495 @@ end
 
 
 function SpectatorArena:EndActivity()
+end
+
+
+-- Hybrid camera revision: reliable soldier follow with occasional combat POIs.
+function SpectatorArena:IsCameraAnchorValid(actor)
+    return actor ~= nil and MovableMan:IsActor(actor);
+end
+
+
+function SpectatorArena:SelectSoldierAnchor(team1Actors, team2Actors)
+    if #team1Actors == 1 then
+        return team1Actors[1];
+    end
+
+    if #team2Actors == 1 then
+        return team2Actors[1];
+    end
+
+    local _, _, combatActor = self:FindBestCombatFocus(team1Actors, team2Actors);
+
+    if combatActor then
+        return combatActor;
+    end
+
+    return team1Actors[1] or team2Actors[1];
+end
+
+
+-- TEMPORARY RAW CAMERA DIAGNOSTIC:
+-- choose a useful idle soldier while alternating teams.
+function SpectatorArena:SelectRawIdleSoldier(team1Actors, team2Actors)
+    local selectedTeam = self.CameraRawNextIdleTeam or 1;
+
+    local candidates = selectedTeam == 1 and team1Actors or team2Actors;
+    local enemies = selectedTeam == 1 and team2Actors or team1Actors;
+
+    -- If the requested team has nobody alive, use the other one.
+    if #candidates == 0 then
+        selectedTeam = selectedTeam == 1 and 2 or 1;
+        candidates = selectedTeam == 1 and team1Actors or team2Actors;
+        enemies = selectedTeam == 1 and team2Actors or team1Actors;
+    end
+
+    local bestActor = nil;
+    local bestDistanceSquared = math.huge;
+
+    for _, actor in ipairs(candidates) do
+        local nearestDistanceSquared = math.huge;
+
+        for _, enemy in ipairs(enemies) do
+            local distance = SceneMan:ShortestDistance(
+                actor.Pos,
+                enemy.Pos,
+                SceneMan.SceneWrapsX
+            );
+
+            local distanceSquared =
+                (distance.X * distance.X) +
+                (distance.Y * distance.Y);
+
+            if distanceSquared < nearestDistanceSquared then
+                nearestDistanceSquared = distanceSquared;
+            end
+        end
+
+        if nearestDistanceSquared < bestDistanceSquared then
+            bestDistanceSquared = nearestDistanceSquared;
+            bestActor = actor;
+        end
+    end
+
+    -- Alternate the requested team for the next idle phase.
+    self.CameraRawNextIdleTeam = selectedTeam == 1 and 2 or 1;
+    self.CameraRawCurrentIdleTeam = selectedTeam;
+
+    return bestActor, selectedTeam;
+end
+
+
+function SpectatorArena:FindBestCombatPOI(team1Actors, team2Actors)
+    local position, score, actor, enemy = self:FindBestCombatFocus(team1Actors, team2Actors);
+
+    if not actor or not enemy or score < 1000 then
+        return nil, 0, nil, nil;
+    end
+
+    return position, score, actor, enemy;
+end
+
+
+function SpectatorArena:ReturnToSoldierFollow(team1Actors, team2Actors)
+    self.CameraMode = "CAMERA_SOLDIER";
+    if not self:IsCameraAnchorValid(self.CameraFollowActor) then
+        self.CameraFollowActor = self:SelectSoldierAnchor(team1Actors, team2Actors);
+    end
+    self.CameraPOIActor = nil;
+    self.CameraPOIEnemy = nil;
+    self.CameraFocusScore = 0;
+    self.CameraModeTimer:Reset();
+    self.CameraEvaluationTimer:Reset();
+end
+
+
+function SpectatorArena:EnterPOIMode(position, score, actor, enemy)
+    self.CameraMode = "CAMERA_POI";
+    self.CameraFocusPosition = position;
+    self.CameraFocusScore = score;
+    self.CameraPOIActor = actor;
+    self.CameraPOIEnemy = enemy;
+    self.CameraModeTimer:Reset();
+    self.CameraPOICooldownTimer:Reset();
+    self.CameraPOICooldownReady = false;
+end
+
+
+function SpectatorArena:TrackCameraFire()
+    if not self:IsCameraAnchorValid(self.CameraFollowActor) then
+        return;
+    end
+
+    local equippedItem = self.CameraFollowActor.EquippedItem;
+    if not equippedItem or not IsHDFirearm(equippedItem) then
+        return;
+    end
+
+    local firearm = ToHDFirearm(equippedItem);
+    if not firearm.FiredFrame then
+        return;
+    end
+
+    local aimDirection = Vector(1, 0):RadRotate(self.CameraFollowActor:GetAimAngle(true));
+    self.CameraLastShot = {
+        shooterID = self.CameraFollowActor.UniqueID,
+        shooterTeam = self.CameraFollowActor.Team,
+        originX = firearm.MuzzlePos.X,
+        originY = firearm.MuzzlePos.Y,
+        directionX = aimDirection.X,
+        directionY = aimDirection.Y
+    };
+    self.CameraRecentFireTimer:Reset();
+end
+
+
+function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
+    local currentActors = {};
+    for _, actor in ipairs(team1Actors) do
+        currentActors[actor.UniqueID] = actor;
+    end
+    for _, actor in ipairs(team2Actors) do
+        currentActors[actor.UniqueID] = actor;
+    end
+
+    local disappearedActors = {};
+    if self.CameraLastShot then
+        for uniqueID, tracked in pairs(self.CameraTrackedActors) do
+            local currentActor = currentActors[uniqueID];
+            local hasObservedDeath = self.CameraEventLogic.HasObservedDeath(
+                tracked.dead,
+                currentActor ~= nil,
+                currentActor and currentActor:IsDead() or false
+            );
+
+            if tracked.team ~= self.CameraLastShot.shooterTeam
+                and hasObservedDeath then
+                local eventPosition = currentActor and currentActor.Pos or tracked.position;
+                local offset = SceneMan:ShortestDistance(
+                    Vector(self.CameraLastShot.originX, self.CameraLastShot.originY),
+                    eventPosition,
+                    SceneMan.SceneWrapsX
+                );
+                table.insert(disappearedActors, {
+                    id = uniqueID,
+                    team = tracked.team,
+                    x = self.CameraLastShot.originX + offset.X,
+                    y = self.CameraLastShot.originY + offset.Y,
+                    position = Vector(eventPosition.X, eventPosition.Y),
+                    deathObserved = true
+                });
+            end
+        end
+    end
+
+    self.CameraTrackedActors = {};
+    for _, actor in ipairs(team1Actors) do
+        self.CameraTrackedActors[actor.UniqueID] = {
+            team = actor.Team,
+            position = Vector(actor.Pos.X, actor.Pos.Y),
+            dead = actor:IsDead(),
+            health = actor.Health,
+            wounds = actor.WoundCount
+        };
+    end
+    for _, actor in ipairs(team2Actors) do
+        self.CameraTrackedActors[actor.UniqueID] = {
+            team = actor.Team,
+            position = Vector(actor.Pos.X, actor.Pos.Y),
+            dead = actor:IsDead(),
+            health = actor.Health,
+            wounds = actor.WoundCount
+        };
+    end
+
+    if not self.CameraLastShot
+        or not self.CameraEventCooldownReady
+        or self:IsCameraAnchorValid(self.CameraFollowActor)
+            and self.CameraFollowActor.UniqueID ~= self.CameraLastShot.shooterID then
+        return nil;
+    end
+
+    local shot = {
+        ageMS = self.CameraRecentFireTimer.ElapsedSimTimeMS,
+        shooterTeam = self.CameraLastShot.shooterTeam,
+        originX = self.CameraLastShot.originX,
+        originY = self.CameraLastShot.originY,
+        directionX = self.CameraLastShot.directionX,
+        directionY = self.CameraLastShot.directionY
+    };
+
+    return self.CameraEventLogic.SelectEventCandidate(
+        shot,
+        disappearedActors,
+        self.CameraHandledVictims,
+        self.CameraRecentFireWindowMS,
+        self.CameraEventMinimumAimDot,
+        self.CameraEventMinimumDistance,
+        self.CameraEventMaximumRange
+    );
+end
+
+
+function SpectatorArena:EnterEventMode(event)
+    self.CameraMode = "CAMERA_EVENT";
+    self.CameraEventPosition = event.position;
+    self.CameraFocusPosition = event.position;
+    self.CameraHandledVictims[event.id] = true;
+    self.CameraModeTimer:Reset();
+    self.CameraEventCooldownTimer:Reset();
+    self.CameraEventCooldownReady = false;
+    print("SpectatorArena: CAMERA_EVENT");
+end
+
+
+function SpectatorArena:ResetCameraDirector()
+    self.CameraMode = "CAMERA_CENTER";
+    self.CameraFollowActor = nil;
+    self.CameraPOIActor = nil;
+    self.CameraPOIEnemy = nil;
+    self.CameraEventPosition = nil;
+    self.CameraLastShot = nil;
+    self.CameraTrackedActors = {};
+    self.CameraHandledVictims = {};
+    self.CameraHasFocus = false;
+    self.CameraFocusPosition = self.CameraPos;
+    self.CameraFocusScore = 0;
+    self.CameraEvaluationTimer:Reset();
+    self.CameraModeTimer:Reset();
+    self.CameraPOICooldownTimer:Reset();
+    self.CameraRecentFireTimer:Reset();
+    self.CameraEventCooldownTimer:Reset();
+    self.CameraPOICooldownReady = true;
+    self.CameraEventCooldownReady = true;
+end
+
+
+function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
+    if self.State ~= "BATTLE" then
+        if self.RoundOver and self:IsCameraAnchorValid(self.CameraFollowActor) then
+            self:SetObservationTarget(self.CameraFollowActor.Pos, Activity.PLAYER_1);
+        elseif self.RoundOver and self.CameraFocusPosition then
+            self:SetObservationTarget(self.CameraFocusPosition, Activity.PLAYER_1);
+        else
+            if self.CameraMode ~= "CAMERA_CENTER" then
+                self:ResetCameraDirector();
+            end
+            self:SetObservationTarget(self.CameraPos, Activity.PLAYER_1);
+        end
+        return;
+    end
+
+    local allTeam1Actors = team1Actors;
+    local allTeam2Actors = team2Actors;
+    local livingTeam1Actors = {};
+    local livingTeam2Actors = {};
+
+    for _, actor in ipairs(allTeam1Actors) do
+        if not actor:IsDead() then
+            table.insert(livingTeam1Actors, actor);
+        end
+    end
+    for _, actor in ipairs(allTeam2Actors) do
+        if not actor:IsDead() then
+            table.insert(livingTeam2Actors, actor);
+        end
+    end
+
+    team1Actors = livingTeam1Actors;
+    team2Actors = livingTeam2Actors;
+
+    -- TEMPORARY RAW CAMERA DIAGNOSTIC.
+    -- No holds, no cooldowns, no event timing:
+    -- show exactly what the current selector prefers.
+    if self.CameraRawDiagnosticMode then
+        if self.CameraEventLogic.HasLastSurvivorPriority(#team1Actors, #team2Actors) then
+            local survivor = self.CameraEventLogic.SelectLastSurvivor(team1Actors, team2Actors);
+
+            if self:IsCameraAnchorValid(survivor) then
+                local survivorID = survivor.UniqueID;
+
+                if self.CameraRawLastTargetType ~= "SURVIVOR"
+                    or self.CameraRawLastActorID ~= survivorID then
+
+                    print("SpectatorArena: CAMERA_RAW SURVIVOR actor=" .. tostring(survivorID));
+
+                    self.CameraRawLastTargetType = "SURVIVOR";
+                    self.CameraRawLastActorID = survivorID;
+                    self.CameraRawLastEnemyID = nil;
+                end
+
+                self.CameraFollowActor = survivor;
+                self:SetObservationTarget(survivor.Pos, Activity.PLAYER_1);
+            end
+
+            return;
+        end
+
+        local position, score, actor, enemy =
+            self:FindBestCombatPOI(team1Actors, team2Actors);
+
+        if position and actor and enemy then
+            local actorID = actor.UniqueID;
+            local enemyID = enemy.UniqueID;
+
+            if self.CameraRawLastTargetType ~= "POI"
+                or self.CameraRawLastActorID ~= actorID
+                or self.CameraRawLastEnemyID ~= enemyID then
+
+                print(
+                    "SpectatorArena: CAMERA_RAW POI actor="
+                    .. tostring(actorID)
+                    .. " enemy="
+                    .. tostring(enemyID)
+                    .. " score="
+                    .. tostring(math.floor(score))
+                );
+
+                self.CameraRawLastTargetType = "POI";
+                self.CameraRawLastActorID = actorID;
+                self.CameraRawLastEnemyID = enemyID;
+            end
+
+            self:SetObservationTarget(position, Activity.PLAYER_1);
+            return;
+        end
+
+        -- Every time active combat ends and we return to idle observation,
+        -- deliberately choose the opposite team from the previous idle phase.
+        if self.CameraRawLastTargetType ~= "SOLDIER"
+            or not self:IsCameraAnchorValid(self.CameraFollowActor) then
+
+            local idleActor, idleTeam =
+                self:SelectRawIdleSoldier(team1Actors, team2Actors);
+
+            self.CameraFollowActor = idleActor;
+            self.CameraRawCurrentIdleTeam = idleTeam;
+        end
+
+        if self:IsCameraAnchorValid(self.CameraFollowActor) then
+            local actorID = self.CameraFollowActor.UniqueID;
+
+            if self.CameraRawLastTargetType ~= "SOLDIER"
+                or self.CameraRawLastActorID ~= actorID then
+
+                print(
+                    "SpectatorArena: CAMERA_RAW SOLDIER team="
+                    .. tostring(self.CameraRawCurrentIdleTeam)
+                    .. " actor="
+                    .. tostring(actorID)
+                );
+
+                self.CameraRawLastTargetType = "SOLDIER";
+                self.CameraRawLastActorID = actorID;
+                self.CameraRawLastEnemyID = nil;
+            end
+
+            self:SetObservationTarget(
+                self.CameraFollowActor.Pos,
+                Activity.PLAYER_1
+            );
+        else
+            if self.CameraRawLastTargetType ~= "CENTER" then
+                print("SpectatorArena: CAMERA_RAW CENTER");
+
+                self.CameraRawLastTargetType = "CENTER";
+                self.CameraRawLastActorID = nil;
+                self.CameraRawLastEnemyID = nil;
+            end
+
+            self:SetObservationTarget(
+                self.CameraPos,
+                Activity.PLAYER_1
+            );
+        end
+
+        return;
+    end
+
+    if not self.CameraPOICooldownReady
+        and self.CameraPOICooldownTimer:IsPastSimMS(self.CameraPOICooldownMS) then
+        self.CameraPOICooldownReady = true;
+    end
+
+    if not self.CameraEventCooldownReady
+        and self.CameraEventCooldownTimer:IsPastSimMS(self.CameraEventCooldownMS) then
+        self.CameraEventCooldownReady = true;
+    end
+
+    if self.CameraEventLogic.HasLastSurvivorPriority(#team1Actors, #team2Actors) then
+        self.CameraMode = "CAMERA_SOLDIER";
+        self.CameraFollowActor = self.CameraEventLogic.SelectLastSurvivor(team1Actors, team2Actors);
+        self.CameraPOIActor = nil;
+        self.CameraPOIEnemy = nil;
+        self.CameraEventPosition = nil;
+        if self:IsCameraAnchorValid(self.CameraFollowActor) then
+            self:SetObservationTarget(self.CameraFollowActor.Pos, Activity.PLAYER_1);
+        end
+        self:DetectCameraEvent(allTeam1Actors, allTeam2Actors);
+        return;
+    end
+
+    self:TrackCameraFire();
+    local cameraEvent = self:DetectCameraEvent(allTeam1Actors, allTeam2Actors);
+    if cameraEvent then
+        self:EnterEventMode(cameraEvent);
+    end
+
+    if self.CameraMode == "CAMERA_EVENT" then
+        if not self.CameraEventPosition
+            or self.CameraModeTimer:IsPastSimMS(self.CameraEventHoldMS) then
+            self.CameraEventPosition = nil;
+            self:ReturnToSoldierFollow(team1Actors, team2Actors);
+        else
+            self:SetObservationTarget(self.CameraEventPosition, Activity.PLAYER_1);
+            return;
+        end
+    end
+
+    if self.CameraMode == "CAMERA_POI" then
+        local poiActorsValid = self:IsCameraAnchorValid(self.CameraPOIActor)
+            and self:IsCameraAnchorValid(self.CameraPOIEnemy);
+        local poiDistanceValid = false;
+
+        if poiActorsValid then
+            local distance = SceneMan:ShortestDistance(
+                self.CameraPOIActor.Pos,
+                self.CameraPOIEnemy.Pos,
+                SceneMan.SceneWrapsX
+            );
+            poiDistanceValid = (distance.X * distance.X) + (distance.Y * distance.Y) <= 260 * 260;
+        end
+
+        if not poiActorsValid
+            or not poiDistanceValid
+            or self.CameraModeTimer:IsPastSimMS(self.CameraPOIMaximumHoldMS) then
+            self:ReturnToSoldierFollow(team1Actors, team2Actors);
+        else
+            self:SetObservationTarget(self.CameraFocusPosition, Activity.PLAYER_1);
+            return;
+        end
+    end
+
+    if self.CameraMode ~= "CAMERA_SOLDIER"
+        or not self:IsCameraAnchorValid(self.CameraFollowActor) then
+        self:ReturnToSoldierFollow(team1Actors, team2Actors);
+    end
+
+    if self:IsCameraAnchorValid(self.CameraFollowActor) then
+        self:SetObservationTarget(self.CameraFollowActor.Pos, Activity.PLAYER_1);
+    else
+        self:SetObservationTarget(self.CameraPos, Activity.PLAYER_1);
+    end
+
+    if self.CameraEvaluationTimer:IsPastSimMS(self.CameraEvaluationIntervalMS)
+        and self.CameraPOICooldownReady
+        and self.CameraModeTimer:IsPastSimMS(self.CameraSoldierMinimumHoldMS) then
+        self.CameraEvaluationTimer:Reset();
+        local position, score, actor, enemy = self:FindBestCombatPOI(team1Actors, team2Actors);
+
+        if position and score >= self.CameraFocusScore * self.CameraPOISwitchThreshold then
+            self:EnterPOIMode(position, score, actor, enemy);
+        end
+    end
 end
