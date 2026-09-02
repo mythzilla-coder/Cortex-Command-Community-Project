@@ -129,3 +129,23 @@ This is not an activation baseline. The approved evidence gate requires at least
 ## Review request
 
 The next reviewer should assess whether the SHADOW observation boundary is genuinely behavior-neutral, whether contact/progress semantics are sound, whether the proposed evidence gates are sufficient, and what smallest safe behavior-enabled experiment should follow the evidence phase.
+
+## Latest SHADOW selection fix — 2026-09-02
+
+Commit `cd4ed43b3` fixes a real Lua dispatch defect in SHADOW: the static
+`SelectVisibleOpponent` helper was invoked with `:` instead of `.`. That
+shifted its arguments and produced zero selected visible opponents even when
+native telemetry classified a ray as `TARGET`.
+
+The checkpoint also adds native-AI-aligned eye/body probes, deterministic ray
+classifications (`TARGET`, `TARGET_ROOT`, `NO_MOID`, `BLOCKED`), and probe-count
+telemetry. Lua controller tests, SHADOW source-integration tests, and the
+Windows `Debug Release|x64` build pass. Production remains `AI_V2_MODE = "OFF"`.
+
+A pre-fix native trace demonstrated the defect by recording
+`rayClassification=TARGET` alongside `visibleOpponentCount=0`. A fresh
+post-fix three-round smoke has not yet been captured because the subsequent
+direct-launch process did not enter the spectator activity or write new events.
+This is a runtime-launch issue, not evidence that the corrected selector has
+failed. The semantic SHADOW gate remains pending; TASKS-A, merge/PR, and the
+canonical 50-round OFF baseline remain blocked.

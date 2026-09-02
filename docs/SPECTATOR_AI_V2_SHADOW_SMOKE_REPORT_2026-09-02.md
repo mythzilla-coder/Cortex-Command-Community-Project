@@ -93,3 +93,22 @@ After the failed smoke, the LOS sensor was changed from `CastObstacleRay` to `Ca
 Raw ray fields are now included in observations. Sampled first-hit values were commonly `hitMOID=255` with valid target MOIDs, indicating that the target was not the first ray hit. This confirms the sensor is no longer treating a target hit as a generic obstacle, but it does not yet establish useful direct visibility during the observed combat positions.
 
 The semantic gate remains failed. The next step is an engine-backed deterministic LOS fixture or controlled scene, not TASKS-A or the canonical OFF baseline.
+
+## Selection-dispatch correction
+
+Native diagnostic telemetry subsequently produced `rayClassification=TARGET`
+with `visibleOpponentCount=0`. Investigation found that
+`SelectVisibleOpponent` is a static controller helper but was called with Lua
+instance syntax (`:`), shifting its arguments and preventing all visible
+selection. Commit `cd4ed43b3` corrects that call to `.`.
+
+The same checkpoint adds native-aligned body/eye probe ordering, deterministic
+ray classifications, and `losProbeRays` accounting. The controller and source
+integration tests pass, and the native Windows `Debug Release|x64` build passes.
+Production source was restored to `AI_V2_MODE = "OFF"` after each test.
+
+No fresh post-fix completed round is recorded yet: the final temporary SHADOW
+launch remained responsive but did not begin the spectator activity or update
+the event log. Therefore the selector fix is implementation-verified, not
+semantic-runtime-validated. Do not advance to TASKS-A, merge/PR, or the 50-round
+OFF baseline until a fresh direct-launch semantic smoke completes.

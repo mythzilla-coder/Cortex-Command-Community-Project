@@ -37,6 +37,7 @@ The project runs an autonomous spectator arena using Cortex Command's native `Na
 - Deterministic nearest-visible opponent selection and aggregate SHADOW visibility/cost/contact metrics are now implemented in the latest checkout.
 - Native runtime follow-up: the Debug Release x64 build passed and three SHADOW rounds ran without watchdogs or pre-touchdown observations, but semantic evidence remained zero-positive and execution-cost reporting returned zero.
 - Sensor follow-up: `CastMORay` target/root-MOID matching and raw ray diagnostics are implemented. A fresh three-round run recorded nonzero CPU cost and durable damage events, but still zero LOS/visibility/fire/contact positives; an engine-backed deterministic fixture is now required.
+- Latest checkpoint (`cd4ed43b3`): diagnostic telemetry exposed a Lua `:` versus `.` dispatch bug in `SelectVisibleOpponent`. A `TARGET` ray could be recorded while visible selection stayed zero. The static call is corrected, and native-aligned eye/body probes, deterministic ray classifications, and probe-count telemetry are added. Tests and a native build pass; a fresh post-fix semantic smoke is still pending because the last direct launch did not start the spectator activity.
 
 ## Review questions
 
@@ -46,6 +47,7 @@ The project runs an autonomous spectator arena using Cortex Command's native `Na
 4. Recommend the smallest useful SHADOW evidence experiment and the exact metrics to collect.
 5. Recommend whether to prioritize the 50-round OFF baseline, SHADOW capture, parser/report improvements, or another safety task.
 6. Propose one narrowly scoped behavior-enabled experiment only if the evidence gate is satisfied; include rollback criteria. TASKS remains blocked for now.
+7. Confirm the direct-launch path and collect a fresh post-fix semantic SHADOW smoke before recommending any gate change.
 
 ## Desired review output
 
