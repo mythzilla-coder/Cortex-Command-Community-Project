@@ -570,6 +570,7 @@ end
 function SpectatorArena:StartActivity()
     print("SpectatorArena: autonomous AI vs AI spectator");
     self.Telemetry = require("Activities/SpectatorTelemetry");
+    self.Telemetry.ConfigureRuntime("SPECTATOR_EVENT_LOG.txt");
     self.Telemetry.Emit("ACTIVITY_START", {});
     self.AI_V2_MODE = "OFF";
     self.AIController = require("Activities/SpectatorAIController").Create({

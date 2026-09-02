@@ -11,6 +11,7 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         source = ACTIVITY.read_text(encoding="utf-8")
 
         self.assertIn('self.AI_V2_MODE = "OFF"', source)
+        self.assertIn('self.Telemetry.ConfigureRuntime("SPECTATOR_EVENT_LOG.txt")', source)
         self.assertIn('self.Telemetry.Emit("AI_V2_CONFIG"', source)
         self.assertIn('self.AIController:RegisterActor(', source)
         self.assertRegex(source, r'AIController:ReleaseActor\(')

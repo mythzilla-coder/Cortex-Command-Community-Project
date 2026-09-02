@@ -15,4 +15,12 @@ local captured
 local line = Telemetry.Emit("WATCHDOG", { round = 4, reason = "no progress" }, function(value) captured = value end)
 assertEqual(captured, line, "sink receives encoded event")
 assertEqual(captured, "SPECTATOR_EVENT event=WATCHDOG round=4 reason=no_progress", "safe field encoding")
+
+local savedPath
+ConsoleMan = {
+    SaveAllText = function(_, path) savedPath = path end
+}
+Telemetry.ConfigureRuntime("SPECTATOR_EVENT_LOG.txt")
+Telemetry.Emit("ACTIVITY_START", {})
+assertEqual(savedPath, "SPECTATOR_EVENT_LOG.txt", "runtime telemetry snapshot path")
 print("spectator_telemetry_test: PASS")

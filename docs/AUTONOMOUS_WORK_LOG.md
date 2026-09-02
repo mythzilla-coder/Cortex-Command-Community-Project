@@ -70,7 +70,12 @@ Finding:
 
 Action:
 - Documented `-cout` stdout capture and orderly shutdown as the valid runtime verification paths.
-- Kept the telemetry implementation unchanged until a fresh clean capture provides evidence for any further fix.
+- Added an activity-scoped `SPECTATOR_EVENT_LOG.txt` snapshot path and taught the soak parser to accept the engine’s `PRINT:` prefix.
+
+Verification:
+- Fresh rebuilt executable smoke run produced 11 `SPECTATOR_EVENT` records, including `AI_V2_CONFIG`, `ROUND_START`, and `BATTLE` state.
+- The parser correctly reported `1` started and `0` completed rounds for the intentionally short run.
+- Runtime snapshot is ignored by Git; no generated log is committed.
 
 ## 2026-09-02 — Deterministic soak parser
 

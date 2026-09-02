@@ -63,7 +63,7 @@ Read:
 
 ## Observability state
 
-The telemetry helper and Python soak parser are implemented and unit-tested. Root-cause review found that Lua `print` is routed into the in-memory `ConsoleMan` buffer, while `LogConsole.txt` is written only during orderly `ConsoleMan::Destroy()`. Historical logs without `SPECTATOR_EVENT` lines therefore do not prove emission failure when the run was force-stopped. Capture a fresh `-cout` stdout stream or close the engine cleanly before treating live telemetry as verified.
+The telemetry helper and Python soak parser are implemented and unit-tested. Root-cause review found that Lua `print` is routed into the in-memory `ConsoleMan` buffer, while `LogConsole.txt` is written only during orderly `ConsoleMan::Destroy()`. The activity now snapshots the console buffer to ignored `SPECTATOR_EVENT_LOG.txt` after telemetry events. A fresh smoke run produced the expected records; a longer soak is still needed for completed-round statistics.
 
 Relevant files:
 
@@ -85,4 +85,4 @@ Prefer deterministic tests, logs, state, and soak reports during autonomous work
 
 Next decision gate:
 
-`repair runtime telemetry -> visually review camera -> accept/reject camera -> commit/synchronize -> build minimal stream-facing HUD`
+`collect OFF-mode baseline -> visually review camera -> accept/reject camera -> commit/synchronize -> build minimal stream-facing HUD`

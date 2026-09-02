@@ -21,4 +21,13 @@ class SoakReportTests(unittest.TestCase):
         self.assertTrue(result["incomplete_final_round"])
         self.assertEqual(result["watchdog_events"], 1)
 
+    def test_accepts_engine_print_prefix_in_console_snapshot(self):
+        result = report.parse([
+            "PRINT: SPECTATOR_EVENT event=ROUND_START round=3",
+            "PRINT: SPECTATOR_EVENT event=ROUND_RESULT round=3 winner=TEAM_2 durationMS=900"
+        ])
+        self.assertEqual(result["rounds_started"], 1)
+        self.assertEqual(result["rounds_completed"], 1)
+        self.assertEqual(result["winners"], {"TEAM_2": 1})
+
 if __name__ == "__main__": unittest.main()

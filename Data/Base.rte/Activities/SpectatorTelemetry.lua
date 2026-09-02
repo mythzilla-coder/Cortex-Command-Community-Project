@@ -1,4 +1,5 @@
 local Telemetry = {}
+local runtimeLogPath
 
 local fieldOrder = {
     "round", "state", "team1", "team2", "team1Alive", "team2Alive",
@@ -8,6 +9,10 @@ local fieldOrder = {
 local function scalar(value)
     local text = tostring(value)
     return string.gsub(text, "[^%w%._%-]", "_")
+end
+
+function Telemetry.ConfigureRuntime(path)
+    runtimeLogPath = path
 end
 
 function Telemetry.Encode(event, fields)
@@ -38,6 +43,9 @@ function Telemetry.Emit(event, fields, sink)
         sink(line)
     else
         print(line)
+    end
+    if runtimeLogPath and ConsoleMan and ConsoleMan.SaveAllText then
+        ConsoleMan:SaveAllText(runtimeLogPath)
     end
     return line
 end

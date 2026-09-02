@@ -3,7 +3,7 @@ import re
 import sys
 from collections import Counter
 
-EVENT = re.compile(r"^SPECTATOR_EVENT\s+event=(\S+)(?:\s+(.*))?$")
+EVENT = re.compile(r"^(?:PRINT:\s+)?SPECTATOR_EVENT\s+event=(\S+)(?:\s+(.*))?$")
 
 def parse(lines):
     events, winners, durations, watchdogs = 0, Counter(), [], 0

@@ -31,4 +31,4 @@ lua tests/spectator_camera_event_test.lua
 lua tests/spectator_telemetry_test.lua
 ```
 
-The remaining runtime verification requirement is to capture a clean `-cout` or orderly-shutdown run and confirm `SPECTATOR_EVENT` lines in the resulting output. Existing historical logs reached `BATTLE` but lacked those lines; because they were collected from a shutdown snapshot/forced smoke workflow, they are not sufficient to distinguish missing emission from missing flush.
+The runtime transport is now verified: a fresh executable smoke run produced `SPECTATOR_EVENT` records in `SPECTATOR_EVENT_LOG.txt`, including activity start, AI V2 configuration, round start, and state transitions. The snapshot is intentionally ignored by Git. A longer soak is still required for completed-round distributions and watchdog rates.
