@@ -1091,6 +1091,112 @@ function SpectatorArena:UpdateCombatPressure(
     self.AICombatPressureTimer:Reset();
 end
 
+function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
+    if self.AI_V2_MODE ~= "SHADOW"
+        or not self.AIController
+        or not self.AISpawnSettled
+    then
+        return;
+    end
+
+    local timestampMS = self.RoundElapsedTimer.ElapsedSimTimeMS;
+
+    local function observeTeam(actors, enemies)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor)
+                and not actor:IsDead()
+                and self.AIReleasedActors[actor.UniqueID]
+            then
+                local enemy, distanceSquared =
+                    self:FindNearestDirectEnemy(actor, enemies);
+                local waypoint = actor:GetLastAIWaypoint();
+                local item = actor.EquippedItem;
+                local firing = false;
+
+                if item and IsHDFirearm(item) then
+                    firing = ToHDFirearm(item).FiredFrame == true;
+                end
+
+                local hasLOS = false;
+                if enemy then
+                    local ray = SceneMan:ShortestDistance(
+                        actor.Pos,
+                        enemy.Pos,
+                        SceneMan.SceneWrapsX
+                    );
+                    local obstacleDistance = SceneMan:CastObstacleRay(
+                        actor.Pos,
+                        ray,
+                        Vector(),
+                        Vector(),
+                        actor.ID,
+                        actor.IgnoresWhichTeam,
+                        rte.grassID,
+                        3
+                    );
+                    hasLOS = obstacleDistance < 0;
+
+                    if hasLOS then
+                        self.AIController:RecordContact(
+                            actor.Team,
+                            enemy.UniqueID,
+                            timestampMS,
+                            enemy.Pos.X,
+                            enemy.Pos.Y,
+                            1.0,
+                            "DIRECT"
+                        );
+                    end
+                end
+
+                local waypointDistance = SceneMan:ShortestDistance(
+                    actor.Pos,
+                    waypoint,
+                    SceneMan.SceneWrapsX
+                );
+                local progress = -math.sqrt(
+                    waypointDistance.X * waypointDistance.X
+                    + waypointDistance.Y * waypointDistance.Y
+                );
+                self.AIController:RecordProgress(
+                    actor.UniqueID,
+                    timestampMS,
+                    progress
+                );
+
+                if firing and enemy and hasLOS then
+                    self.AIController:RecordEngagement(
+                        actor.UniqueID,
+                        timestampMS,
+                        "FIRE_LOS",
+                        timestampMS + 2500
+                    );
+                end
+
+                self.Telemetry.Emit("AI_SHADOW_OBSERVATION", {
+                    round = self.RoundNumber,
+                    actor = actor.UniqueID,
+                    team = actor.Team,
+                    enemy = enemy and enemy.UniqueID or nil,
+                    distance = distanceSquared and math.sqrt(distanceSquared) or nil,
+                    health = actor.Health,
+                    prevHealth = actor.PrevHealth,
+                    firing = firing,
+                    hasLOS = hasLOS,
+                    waypointX = waypoint.X,
+                    waypointY = waypoint.Y,
+                    pathSize = actor.MovePathSize,
+                    pathPending = actor.IsWaitingOnNewMovePath,
+                    recoveryStage = self.AIController:GetRecoveryStage(actor.UniqueID)
+                });
+            end
+        end
+    end
+
+    observeTeam(team1Actors, team2Actors);
+    observeTeam(team2Actors, team1Actors);
+end
+
 function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)
     if not self.AIController
         or not self.AISpawnSettled
@@ -1123,6 +1229,8 @@ function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)
 
     sampleActors(team1Actors);
     sampleActors(team2Actors);
+
+    self:UpdateAIShadowObservations(team1Actors, team2Actors);
 end
 
 function SpectatorArena:UpdateActivity()

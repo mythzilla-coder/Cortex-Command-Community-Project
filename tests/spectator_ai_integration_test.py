@@ -33,6 +33,32 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertNotIn("AddAISceneWaypoint", body)
         self.assertNotIn("AddAIMOWaypoint", body)
 
+    def test_shadow_observations_are_post_release_and_read_only(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn("function SpectatorArena:UpdateAIShadowObservations", source)
+        shadow_start = source.index("function SpectatorArena:UpdateAIShadowObservations")
+        shadow_end = source.index("\nfunction ", shadow_start + 10)
+        shadow_body = source[shadow_start:shadow_end]
+
+        self.assertIn('self.AI_V2_MODE ~= "SHADOW"', shadow_body)
+        self.assertIn("self.AIController:RecordContact(", shadow_body)
+        self.assertIn("self.AIController:RecordEngagement(", shadow_body)
+        self.assertIn('self.Telemetry.Emit("AI_SHADOW_OBSERVATION"', shadow_body)
+        self.assertNotIn("AIMode =", shadow_body)
+        self.assertNotIn("ClearAIWaypoints", shadow_body)
+        self.assertNotIn("AddAISceneWaypoint", shadow_body)
+        self.assertNotIn("AddAIMOWaypoint", shadow_body)
+
+        instrumentation_start = source.index("function SpectatorArena:UpdateAIInstrumentation")
+        instrumentation_end = source.index("\nfunction ", instrumentation_start + 10)
+        instrumentation_body = source[instrumentation_start:instrumentation_end]
+        self.assertIn("self:UpdateAIShadowObservations(", instrumentation_body)
+        self.assertLess(
+            instrumentation_body.index("self.AISpawnSettled"),
+            instrumentation_body.index("self:UpdateAIShadowObservations(")
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
