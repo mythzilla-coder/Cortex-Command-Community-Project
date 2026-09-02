@@ -168,3 +168,22 @@ Observed in a temporary non-default SHADOW run:
 Decision:
 - SHADOW instrumentation plumbing passes, but semantic readiness is incomplete. Keep production `OFF`; do not activate TASKS or TACTICAL behavior.
 - Full details: `docs/SPECTATOR_AI_V2_SHADOW_SMOKE_REPORT_2026-09-02.md`.
+
+## 2026-09-02 — SHADOW telemetry I/O performance correction
+
+Finding:
+- `Telemetry.Emit()` was calling `ConsoleMan:SaveAllText()` for every event, including every SHADOW actor observation. This was a confirmed high-probability source of periodic full-console disk-write stalls.
+
+Changed:
+- Separated cheap `Telemetry.Emit()` from explicit `Telemetry.Snapshot()`.
+- Moved the arena snapshot to the low-frequency `ROUND_RESULT` boundary.
+- Kept production mode `OFF` and preserved the existing telemetry test contract through explicit snapshot verification.
+
+Verification:
+- Telemetry/controller Lua tests — PASS.
+- Python suite — 3 tests PASS.
+- Runtime A/B confirmation: 894 SHADOW observations accumulated before the first round-result snapshot, with no snapshot file during the initial 30-second window; the file appeared after round 1 completed.
+- Source restored to `AI_V2_MODE = "OFF"`; camera work remains untouched.
+
+Remaining:
+- Add aggregate SHADOW counters and execution-cost timing before another semantic SHADOW run.

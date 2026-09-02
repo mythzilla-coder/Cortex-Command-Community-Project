@@ -39,6 +39,14 @@ The current 500 ms observation cadence should not be treated as a reliable firin
 
 The log's nearest-enemy ID/distance fields are diagnostic world-truth observations. They must remain separate from team knowledge and must not become strategic targets when LOS is false.
 
+## Performance follow-up
+
+The original smoke path exposed a telemetry architecture problem: `Telemetry.Emit()` called `ConsoleMan:SaveAllText()` for every event. That meant each 500 ms SHADOW batch could trigger repeated full-console snapshots.
+
+The fix separates cheap event emission from explicit `Telemetry.Snapshot()`. The arena now snapshots at `ROUND_RESULT` only. A runtime confirmation produced 894 SHADOW observations during round 1; no snapshot file existed during the first 30 seconds, and the file appeared only after the round-result boundary. This confirms that SHADOW observations no longer force per-observation disk snapshots.
+
+This validates the I/O hypothesis but is not a complete frame-pacing benchmark. CPU/UPS and per-update timing counters remain future work.
+
 ## Decision
 
 - SHADOW smoke: pass for instrumentation plumbing.

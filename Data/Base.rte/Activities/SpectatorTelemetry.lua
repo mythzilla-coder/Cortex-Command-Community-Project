@@ -15,6 +15,16 @@ function Telemetry.ConfigureRuntime(path)
     runtimeLogPath = path
 end
 
+function Telemetry.Snapshot(path)
+    local snapshotPath = path or runtimeLogPath
+    if not snapshotPath or not ConsoleMan or not ConsoleMan.SaveAllText then
+        return false
+    end
+
+    ConsoleMan:SaveAllText(snapshotPath)
+    return true
+end
+
 function Telemetry.Encode(event, fields)
     local parts = { "SPECTATOR_EVENT", "event=" .. scalar(event) }
     local used = {}
@@ -43,9 +53,6 @@ function Telemetry.Emit(event, fields, sink)
         sink(line)
     else
         print(line)
-    end
-    if runtimeLogPath and ConsoleMan and ConsoleMan.SaveAllText then
-        ConsoleMan:SaveAllText(runtimeLogPath)
     end
     return line
 end

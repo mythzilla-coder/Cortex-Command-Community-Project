@@ -533,6 +533,7 @@ function SpectatorArena:FinishRound(winner)
         team1Score = self.Team1Score,
         team2Score = self.Team2Score
     });
+    self.Telemetry.Snapshot();
 end
 
 

@@ -2,7 +2,7 @@ package.path = "Data/Base.rte/?.lua;" .. package.path
 local Telemetry = require("Activities/SpectatorTelemetry")
 
 local function assertEqual(actual, expected, message)
-    if actual ~= expected then error(message .. ": expected " .. expected .. ", got " .. actual) end
+    if actual ~= expected then error(message .. ": expected " .. tostring(expected) .. ", got " .. tostring(actual)) end
 end
 
 assertEqual(
@@ -22,5 +22,7 @@ ConsoleMan = {
 }
 Telemetry.ConfigureRuntime("SPECTATOR_EVENT_LOG.txt")
 Telemetry.Emit("ACTIVITY_START", {})
+assertEqual(savedPath, nil, "event emission does not force a disk snapshot")
+Telemetry.Snapshot()
 assertEqual(savedPath, "SPECTATOR_EVENT_LOG.txt", "runtime telemetry snapshot path")
 print("spectator_telemetry_test: PASS")
