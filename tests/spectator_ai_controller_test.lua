@@ -84,6 +84,36 @@ controller:RecordProgress(101, 11002, 10)
 assertEqual(controller:GetRecoveryStage(101), 2, "continued stall escalates only one stage at a time")
 assertEqual(controller:GetRecoveryStage(101), 2, "recovery stage remains bounded between observations")
 
+local closeWeapon = Controller.ClassifyWeapon({ effectiveRange = 100, projectileCount = 8, spread = 0.4 })
+assertEqual(closeWeapon.Class, "CLOSE", "scatter weapon is classified for close engagement")
+local longWeapon = Controller.ClassifyWeapon({ effectiveRange = 500, projectileCount = 1, spread = 0.05 })
+assertEqual(longWeapon.Class, "LONG", "accurate weapon is classified for distance")
+assertEqual(Controller.ClassifyWeapon({}).Confidence, 0, "invalid weapon profile has no confidence")
+
+local closeCovered = Controller.ScoreDestination({
+    weaponClass = "CLOSE", distance = 80, hasLOS = true, cover = 1.0, threat = 0.2
+})
+local closeOpen = Controller.ScoreDestination({
+    weaponClass = "CLOSE", distance = 80, hasLOS = true, cover = 0.0, threat = 0.2
+})
+assertTrue(closeCovered > closeOpen, "close-range weapons prefer covered close positions")
+
+local longLOS = Controller.ScoreDestination({
+    weaponClass = "LONG", distance = 500, hasLOS = true, cover = 0.5, threat = 0.2
+})
+local longBlocked = Controller.ScoreDestination({
+    weaponClass = "LONG", distance = 500, hasLOS = false, cover = 0.5, threat = 0.2
+})
+assertTrue(longLOS > longBlocked, "long-range weapons prefer line of sight")
+
+local selected = Controller.SelectDistinctDestination({
+    { id = "marginal", score = 11 },
+    { id = "strong", score = 15 }
+}, { id = "current", score = 12 }, 2)
+assertEqual(selected.id, "strong", "destination selection accepts meaningful improvement")
+assertEqual(Controller.SelectDistinctDestination({ { id = "marginal", score = 13 } }, { id = "current", score = 12 }, 2).id,
+    "current", "marginal destination improvement is rejected")
+
 controller:BeginRound(8, 5678)
 assertEqual(controller.ActorState[101], nil, "new round clears actor IDs")
 assertEqual(controller.ContactMemory[1], nil, "new round clears contact memory")

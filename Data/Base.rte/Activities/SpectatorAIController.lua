@@ -1,5 +1,59 @@
 local SpectatorAIController = {}
 
+function SpectatorAIController.ClassifyWeapon(profile)
+    if type(profile) ~= "table" or type(profile.effectiveRange) ~= "number" or profile.effectiveRange <= 0 then
+        return { Class = "UNKNOWN", Confidence = 0 }
+    end
+
+    local projectileCount = profile.projectileCount or 1
+    local spread = profile.spread or 0
+    if profile.effectiveRange < 200 or projectileCount >= 4 or spread > 0.25 then
+        return { Class = "CLOSE", Confidence = 1 }
+    end
+    if profile.effectiveRange >= 350 and projectileCount <= 2 and spread <= 0.2 then
+        return { Class = "LONG", Confidence = 1 }
+    end
+    return { Class = "MID", Confidence = 0.75 }
+end
+
+function SpectatorAIController.ScoreDestination(context)
+    if type(context) ~= "table" or type(context.distance) ~= "number" then
+        return -math.huge
+    end
+
+    local cover = math.max(0, math.min(1, context.cover or 0))
+    local threat = math.max(0, context.threat or 0)
+    local lineOfSight = context.hasLOS and 1 or 0
+    local distance = context.distance
+    local score
+
+    if context.weaponClass == "CLOSE" then
+        score = math.max(0, 1 - math.abs(distance - 100) / 250) + cover * 3 + lineOfSight - threat
+    elseif context.weaponClass == "LONG" then
+        score = math.max(0, 1 - math.abs(distance - 500) / 600) + lineOfSight * 4 + cover - threat
+    else
+        score = math.max(0, 1 - math.abs(distance - 250) / 400) + cover * 2 + lineOfSight * 2 - threat
+    end
+
+    return score
+end
+
+function SpectatorAIController.SelectDistinctDestination(candidates, current, minimumImprovement)
+    local best = current
+    local bestScore = current and current.score or -math.huge
+    for _, candidate in ipairs(candidates or {}) do
+        if candidate.score > bestScore then
+            best = candidate
+            bestScore = candidate.score
+        end
+    end
+
+    if not best or not current or best == current or bestScore <= (current.score + (minimumImprovement or 0)) then
+        return current
+    end
+    return best
+end
+
 local function copySample(timestampMS, x, y, waypointX, waypointY, hardEngaged, pathPending)
     return {
         timestampMS = timestampMS,
