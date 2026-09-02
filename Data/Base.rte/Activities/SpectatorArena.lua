@@ -544,6 +544,7 @@ function SpectatorArena:FinishRound(winner)
             damageEvents = aiSnapshot.DamageEvents,
             visibleOpponents = aiSnapshot.VisibleOpponents,
             visibleOpponentChecks = aiSnapshot.VisibleOpponentChecks,
+            losProbeRays = aiSnapshot.LOSProbeRays,
             actorSkips = aiSnapshot.ActorSkips,
             contactAcquisitions = aiSnapshot.ContactAcquisitions,
             contactLosses = aiSnapshot.ContactLosses,
@@ -1121,6 +1122,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
     local cpuStartSeconds = os.clock();
     local visibleOpponentTotal = 0;
     local visibleOpponentChecks = 0;
+    local losProbeRays = 0;
     local actorSkips = 0;
 
     local function observeTeam(actors, enemies)
@@ -1137,50 +1139,73 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
 
                 for _, opponent in ipairs(enemies) do
                     if MovableMan:IsActor(opponent) and not opponent:IsDead() then
-                        local ray = SceneMan:ShortestDistance(
-                            actor.Pos,
-                            opponent.Pos,
-                            SceneMan.SceneWrapsX
-                        );
+                        -- Mirror Cortex's native target-acquisition profile: eyes
+                        -- first cast to the body, then fall back to the eye point.
+                        -- This remains SHADOW-only and read-only.
+                        local origin = actor.EyePos or actor.Pos;
+                        local ray = SceneMan:ShortestDistance(origin, opponent.Pos, false);
                         local distanceSquared = ray.X * ray.X + ray.Y * ray.Y;
-                        local hitMOID = SceneMan:CastMORay(
-                            actor.Pos,
-                            ray,
-                            actor.ID,
-                            actor.IgnoresWhichTeam,
-                            rte.airID,
-                            false,
-                            0
-                        );
                         local targetRootMOID = MovableMan:GetRootMOID(opponent.ID);
-                        opponents[#opponents + 1] = {
-                            UniqueID = opponent.UniqueID,
-                            distanceSquared = distanceSquared,
-                            actor = opponent
-                        };
-                        visibilityByID[opponent.UniqueID] =
-                            self.AIController.IsVisibleRayHit(
+                        local hitMOID = rte.NoMOID;
+                        local selectedTarget = nil;
+                        local rayClassification = "NO_MOID";
+                        local isVisible = false;
+
+                        for _, probe in ipairs(
+                            self.AIController.BuildSightProbeTargets(
+                                opponent.Pos,
+                                opponent.EyePos
+                            )
+                        ) do
+                            ray = SceneMan:ShortestDistance(origin, probe.position, false);
+                            hitMOID = SceneMan:CastMORay(
+                                origin,
+                                ray,
+                                actor.ID,
+                                actor.IgnoresWhichTeam,
+                                rte.grassID,
+                                false,
+                                5
+                            );
+                            losProbeRays = losProbeRays + 1;
+                            selectedTarget = probe;
+                            rayClassification = self.AIController.ClassifyRayHit(
                                 hitMOID,
                                 opponent.ID,
                                 targetRootMOID,
                                 rte.NoMOID
                             );
+                            isVisible = rayClassification == "TARGET"
+                                or rayClassification == "TARGET_ROOT";
+                            if isVisible then
+                                break;
+                            end
+                        end
+                        opponents[#opponents + 1] = {
+                            UniqueID = opponent.UniqueID,
+                            distanceSquared = distanceSquared,
+                            actor = opponent
+                        };
+                        visibilityByID[opponent.UniqueID] = isVisible;
                         rayDetailsByID[opponent.UniqueID] = {
                             rayReturn = hitMOID,
                             hitMOID = hitMOID,
                             targetMOID = opponent.ID,
                             targetRootMOID = targetRootMOID,
-                            startX = actor.Pos.X,
-                            startY = actor.Pos.Y,
-                            endX = opponent.Pos.X,
-                            endY = opponent.Pos.Y
+                            noMOID = rte.NoMOID,
+                            rayClassification = rayClassification,
+                            probeTarget = selectedTarget and selectedTarget.kind or nil,
+                            startX = origin.X,
+                            startY = origin.Y,
+                            endX = selectedTarget and selectedTarget.position.X or nil,
+                            endY = selectedTarget and selectedTarget.position.Y or nil
                         };
                         visibleOpponentChecks = visibleOpponentChecks + 1;
                     end
                 end
 
                 local visibleEnemy, visibleDistanceSquared, visibleOpponentCount =
-                    self.AIController:SelectVisibleOpponent(opponents, visibilityByID);
+                    self.AIController.SelectVisibleOpponent(opponents, visibilityByID);
                 visibleOpponentTotal = visibleOpponentTotal + visibleOpponentCount;
                 local enemy = visibleEnemy and visibleEnemy.actor or nil;
                 local distanceSquared = visibleDistanceSquared or nearestDistanceSquared;
@@ -1255,10 +1280,13 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     hitMOID = nearestRayDetails and nearestRayDetails.hitMOID or nil,
                     targetMOID = nearestRayDetails and nearestRayDetails.targetMOID or nil,
                     targetRootMOID = nearestRayDetails and nearestRayDetails.targetRootMOID or nil,
+                    rayNoMOID = nearestRayDetails and nearestRayDetails.noMOID or nil,
+                    rayClassification = nearestRayDetails and nearestRayDetails.rayClassification or nil,
                     rayStartX = nearestRayDetails and nearestRayDetails.startX or nil,
                     rayStartY = nearestRayDetails and nearestRayDetails.startY or nil,
                     rayEndX = nearestRayDetails and nearestRayDetails.endX or nil,
                     rayEndY = nearestRayDetails and nearestRayDetails.endY or nil,
+                    rayProbeTarget = nearestRayDetails and nearestRayDetails.probeTarget or nil,
                     distance = distanceSquared and math.sqrt(distanceSquared) or nil,
                     health = actor.Health,
                     prevHealth = actor.PrevHealth,
@@ -1284,6 +1312,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
     self.AIController:RecordShadowBatchMetrics({
         visibleOpponents = visibleOpponentTotal,
         visibleOpponentChecks = visibleOpponentChecks,
+        losProbeRays = losProbeRays,
         actorSkips = actorSkips,
         elapsedMS = self.AIController.CalculateCPUTimeMS(cpuStartSeconds, os.clock())
     });

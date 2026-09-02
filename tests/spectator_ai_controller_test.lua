@@ -24,7 +24,21 @@ assertTrue(Controller.IsVisibleRayHit(42, 42, 42, -1), "direct target ray hit is
 assertTrue(Controller.IsVisibleRayHit(99, 42, 99, -1), "target child ray hit is visible")
 assertFalse(Controller.IsVisibleRayHit(-1, 42, 42, -1), "terrain ray hit is blocked")
 assertFalse(Controller.IsVisibleRayHit(77, 42, 42, -1), "intervening actor ray hit is blocked")
+assertEqual(Controller.ClassifyRayHit(42, 42, 42, -1), "TARGET", "direct target hit is classified")
+assertEqual(Controller.ClassifyRayHit(99, 42, 99, -1), "TARGET_ROOT", "target root hit is classified")
+assertEqual(Controller.ClassifyRayHit(-1, 42, 42, -1), "NO_MOID", "no-MOID hit is classified")
+assertEqual(Controller.ClassifyRayHit(77, 42, 42, -1), "BLOCKED", "intervening actor hit is classified")
 assertEqual(Controller.CalculateCPUTimeMS(1.25, 1.5), 250, "CPU time converts to milliseconds")
+
+local sightTargets = Controller.BuildSightProbeTargets(
+    { X = 100, Y = 200 },
+    { X = 100, Y = 180 }
+)
+assertEqual(#sightTargets, 2, "body and eye sight targets are both probed")
+assertEqual(sightTargets[1].kind, "BODY", "body is the first native-aligned sight probe")
+assertEqual(sightTargets[2].kind, "EYE", "eye is the fallback native-aligned sight probe")
+assertEqual(#Controller.BuildSightProbeTargets({ X = 1, Y = 2 }, { X = 1, Y = 2 }), 1,
+    "identical body and eye targets are not double-probed")
 
 local controller = Controller.Create({
     mode = "OFF",
@@ -125,6 +139,7 @@ assertEqual(controller.Metrics.DamageEvents, damageEventsBeforeSignal + 1, "high
 controller:RecordShadowBatchMetrics({
     visibleOpponents = 3,
     visibleOpponentChecks = 8,
+    losProbeRays = 11,
     actorSkips = 1,
     contactAcquisitions = 2,
     contactLosses = 1,
@@ -133,6 +148,7 @@ controller:RecordShadowBatchMetrics({
 local metricsSnapshot = controller:Snapshot()
 assertEqual(metricsSnapshot.VisibleOpponents, 3, "visible opponents are aggregated")
 assertEqual(metricsSnapshot.VisibleOpponentChecks, 8, "visibility checks are aggregated")
+assertEqual(metricsSnapshot.LOSProbeRays, 11, "native-aligned LOS probe rays are aggregated")
 assertEqual(metricsSnapshot.ActorSkips, 1, "actor skips are aggregated")
 assertEqual(metricsSnapshot.ContactAcquisitions, 3, "contact acquisitions are aggregated")
 assertEqual(metricsSnapshot.ContactLosses, 2, "contact losses are aggregated")

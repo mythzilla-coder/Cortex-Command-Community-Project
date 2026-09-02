@@ -73,11 +73,42 @@ function SpectatorAIController.SelectVisibleOpponent(opponents, visibilityByID)
     return nearestOpponent, nearestDistanceSquared, visibleOpponentCount
 end
 
-function SpectatorAIController.IsVisibleRayHit(hitMOID, targetMOID, targetRootMOID, noMOID)
+function SpectatorAIController.ClassifyRayHit(hitMOID, targetMOID, targetRootMOID, noMOID)
     if hitMOID == nil or hitMOID == noMOID then
-        return false
+        return "NO_MOID"
     end
-    return hitMOID == targetMOID or hitMOID == targetRootMOID
+    if hitMOID == targetMOID then
+        return "TARGET"
+    end
+    if hitMOID == targetRootMOID then
+        return "TARGET_ROOT"
+    end
+    return "BLOCKED"
+end
+
+function SpectatorAIController.IsVisibleRayHit(hitMOID, targetMOID, targetRootMOID, noMOID)
+    local classification = SpectatorAIController.ClassifyRayHit(
+        hitMOID,
+        targetMOID,
+        targetRootMOID,
+        noMOID
+    )
+    return classification == "TARGET" or classification == "TARGET_ROOT"
+end
+
+function SpectatorAIController.BuildSightProbeTargets(bodyPosition, eyePosition)
+    local targets = {}
+    if bodyPosition then
+        targets[#targets + 1] = { kind = "BODY", position = bodyPosition }
+    end
+    if eyePosition
+        and (not bodyPosition
+            or eyePosition.X ~= bodyPosition.X
+            or eyePosition.Y ~= bodyPosition.Y)
+    then
+        targets[#targets + 1] = { kind = "EYE", position = eyePosition }
+    end
+    return targets
 end
 
 function SpectatorAIController.CalculateCPUTimeMS(startSeconds, finishSeconds)
@@ -124,6 +155,7 @@ function SpectatorAIController.Create(config)
             DamageEvents = 0,
             VisibleOpponents = 0,
             VisibleOpponentChecks = 0,
+            LOSProbeRays = 0,
             ActorSkips = 0,
             ContactAcquisitions = 0,
             ContactLosses = 0,
@@ -152,6 +184,7 @@ function SpectatorAIController:BeginRound(roundID, seed)
         DamageEvents = 0,
         VisibleOpponents = 0,
         VisibleOpponentChecks = 0,
+        LOSProbeRays = 0,
         ActorSkips = 0,
         ContactAcquisitions = 0,
         ContactLosses = 0,
@@ -437,6 +470,7 @@ function SpectatorAIController:RecordShadowBatchMetrics(fields)
     fields = fields or {}
     self.Metrics.VisibleOpponents = self.Metrics.VisibleOpponents + (fields.visibleOpponents or 0)
     self.Metrics.VisibleOpponentChecks = self.Metrics.VisibleOpponentChecks + (fields.visibleOpponentChecks or 0)
+    self.Metrics.LOSProbeRays = self.Metrics.LOSProbeRays + (fields.losProbeRays or 0)
     self.Metrics.ActorSkips = self.Metrics.ActorSkips + (fields.actorSkips or 0)
     self.Metrics.ContactAcquisitions = self.Metrics.ContactAcquisitions + (fields.contactAcquisitions or 0)
     self.Metrics.ContactLosses = self.Metrics.ContactLosses + (fields.contactLosses or 0)
@@ -470,6 +504,7 @@ function SpectatorAIController:Snapshot()
         DamageEvents = self.Metrics.DamageEvents,
         VisibleOpponents = self.Metrics.VisibleOpponents,
         VisibleOpponentChecks = self.Metrics.VisibleOpponentChecks,
+        LOSProbeRays = self.Metrics.LOSProbeRays,
         ActorSkips = self.Metrics.ActorSkips,
         ContactAcquisitions = self.Metrics.ContactAcquisitions,
         ContactLosses = self.Metrics.ContactLosses,
