@@ -98,19 +98,18 @@ This is not an activation baseline. The approved evidence gate requires at least
 ## Known limitations and discrepancies
 
 - AI V2 scoring helpers are implemented and tested but are not yet driving actor behavior.
-- No non-default SHADOW trace has been captured or reviewed yet.
-- A first SHADOW smoke trace has been captured; instrumentation passed, but it produced no LOS-positive or firing-positive observations.
+- The first non-default SHADOW plumbing smoke trace passed instrumentation, but it produced no LOS-positive or firing-positive observations.
 - No claim can be made about improved win rate, tactical quality, CPU/UPS impact, recovery quality, or hidden-position violations.
 - The nearest-enemy observation is conservative but does not provide direct killer/instigator attribution.
 - The existing camera-review files are separate user work and remain dirty/uncommitted.
 
 ## Recommended next steps
 
-1. Capture a short, non-default SHADOW trace while keeping the repository's committed production default at `OFF`.
-2. Extend the soak parser only for fields proven by the captured trace, then review contact plausibility, observation volume, recovery correlation, and malformed-line behavior.
-3. Complete the 50-round OFF baseline and record winner distribution, duration distribution, watchdog rate, incomplete rounds, runtime stability, and CPU/UPS if available.
-4. Compare SHADOW proposals/observations against the OFF baseline. Separate measured facts, inferences, and unanswered questions.
-5. Ask for explicit approval before changing the default from OFF or applying TASKS behavior.
+1. Validate LOS semantics with deterministic tests and distinguish nearest-opponent LOS from any-visible-opponent LOS.
+2. Add aggregate counters and measured execution-cost fields to the next SHADOW trace.
+3. Run a second semantic SHADOW smoke requiring LOS-positive, contact, firing, and damage evidence.
+4. Complete the 50-round OFF baseline and record winner distribution, duration distribution, watchdog rate, incomplete rounds, runtime stability, and CPU/UPS if available.
+5. Compare SHADOW observations against the OFF baseline, then request explicit approval before changing the default from OFF or applying TASKS behavior.
 6. Only after evidence supports it, implement one narrow behavior-enabled experiment with rollback and a matched OFF comparison.
 
 ## Recent committed work
