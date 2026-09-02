@@ -73,6 +73,12 @@ Relevant files:
 - `tests/spectator_camera_event_test.lua`
 - `tests/test_spectator_soak_report.py`
 
+## AI V2 status
+
+The AI V2 pre-coding blueprint is now being executed incrementally. The first behavior-neutral foundation is present in `Data/Base.rte/Activities/SpectatorAIController.lua` with focused coverage in `tests/spectator_ai_controller_test.lua`. It is not integrated into the activity yet, defaults to `OFF`, and does not mutate actors, AIMode, waypoints, controllers, or combat behavior.
+
+The next safe increment is OFF-mode activity observation after the existing `AI_TOUCHDOWN_ALL_RELEASED` handoff. Do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW evidence exists.
+
 ## Work protocol
 
 Prefer deterministic tests, logs, state, and soak reports during autonomous work. Preserve unrelated changes. Record meaningful progress in `docs/AUTONOMOUS_WORK_LOG.md` and a dated session summary. Synchronize external Drive/Notion state only after verified local milestones.
