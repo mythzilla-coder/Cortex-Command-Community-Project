@@ -74,3 +74,22 @@ A native Windows `Debug Release|x64` build completed successfully before this ru
 - Reported `shadowObservationTimeMS`: 0 in all three summaries; this is not accepted as valid execution-cost evidence and requires instrumentation follow-up.
 
 This validates native loading, lifecycle gating, telemetry emission, and runtime stability only. It does not pass the semantic SHADOW gate and does not justify TASKS-A.
+
+## Sensor-validation follow-up
+
+After the failed smoke, the LOS sensor was changed from `CastObstacleRay` to `CastMORay` with explicit target/root-MOID matching. The native build passed again, and a fresh three-round SHADOW run completed.
+
+- Observations: 2,637 across the three summaries.
+- Both teams represented: team 0 = 1,423; team 1 = 1,244.
+- Pre-touchdown observations: 0.
+- Watchdogs: 0.
+- Visible opponents: 0.
+- LOS-positive observations: 0.
+- Fire events: 0.
+- Contact acquisitions/losses: 0/0.
+- Damage events: 2,707; 153; and 239 by round.
+- SHADOW CPU time: 185 ms; 276 ms; and 270 ms by round.
+
+Raw ray fields are now included in observations. Sampled first-hit values were commonly `hitMOID=255` with valid target MOIDs, indicating that the target was not the first ray hit. This confirms the sensor is no longer treating a target hit as a generic obstacle, but it does not yet establish useful direct visibility during the observed combat positions.
+
+The semantic gate remains failed. The next step is an engine-backed deterministic LOS fixture or controlled scene, not TASKS-A or the canonical OFF baseline.

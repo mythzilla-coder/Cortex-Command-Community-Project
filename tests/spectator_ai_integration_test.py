@@ -48,6 +48,11 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertIn("visibleOpponentCount", shadow_body)
         self.assertIn("visibleOpponentChecks", shadow_body)
         self.assertIn("self.AIController:RecordShadowBatchMetrics(", shadow_body)
+        self.assertIn("SceneMan:CastMORay(", shadow_body)
+        self.assertIn("self.AIController.IsVisibleRayHit(", shadow_body)
+        self.assertIn("rayReturn", shadow_body)
+        self.assertIn("hitMOID", shadow_body)
+        self.assertIn("CalculateCPUTimeMS", shadow_body)
         self.assertIn("self.AIController:FiredRecently(", shadow_body)
         self.assertIn("self.AIController:RecordEngagement(", shadow_body)
         self.assertIn('self.Telemetry.Emit("AI_SHADOW_OBSERVATION"', shadow_body)
@@ -69,6 +74,8 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
             instrumentation_body.index("self.AISpawnSettled"),
             instrumentation_body.index("self:UpdateAIShadowObservations(")
         )
+        self.assertIn("UpdateAIFireDamageLatches", source)
+        self.assertIn("RecordCombatSignals", source)
 
 
 if __name__ == "__main__":

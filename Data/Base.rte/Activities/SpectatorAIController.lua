@@ -73,6 +73,17 @@ function SpectatorAIController.SelectVisibleOpponent(opponents, visibilityByID)
     return nearestOpponent, nearestDistanceSquared, visibleOpponentCount
 end
 
+function SpectatorAIController.IsVisibleRayHit(hitMOID, targetMOID, targetRootMOID, noMOID)
+    if hitMOID == nil or hitMOID == noMOID then
+        return false
+    end
+    return hitMOID == targetMOID or hitMOID == targetRootMOID
+end
+
+function SpectatorAIController.CalculateCPUTimeMS(startSeconds, finishSeconds)
+    return (finishSeconds - startSeconds) * 1000
+end
+
 local function copySample(timestampMS, x, y, waypointX, waypointY, hardEngaged, pathPending)
     return {
         timestampMS = timestampMS,
@@ -260,6 +271,28 @@ function SpectatorAIController:RecordDamage(actorID, timestampMS, amount)
     return true
 end
 
+function SpectatorAIController:RecordCombatSignals(actorID, timestampMS, firing, health, previousHealth)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    if firing then
+        self:RecordFireEvent(actorID, timestampMS)
+    end
+
+    if type(health) == "number" then
+        if actor.LastObservedHealth ~= nil and health < actor.LastObservedHealth then
+            self:RecordDamage(actorID, timestampMS, actor.LastObservedHealth - health)
+        end
+        actor.LastObservedHealth = health
+    elseif type(previousHealth) == "number" and actor.LastObservedHealth == nil then
+        actor.LastObservedHealth = previousHealth
+    end
+
+    return true
+end
+
 function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, hasLOS, firing, health, previousHealth, visibleEnemyID)
     local actor = self.ActorState[actorID]
     if not actor then
@@ -281,18 +314,7 @@ function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, has
         actor.LastVisibleEnemyID = visibleEnemyID
     end
 
-    if firing then
-        self:RecordFireEvent(actorID, timestampMS)
-    end
-
-    if type(health) == "number" then
-        if actor.LastObservedHealth ~= nil and health < actor.LastObservedHealth then
-            self:RecordDamage(actorID, timestampMS, actor.LastObservedHealth - health)
-        end
-        actor.LastObservedHealth = health
-    elseif type(previousHealth) == "number" and actor.LastObservedHealth == nil then
-        actor.LastObservedHealth = previousHealth
-    end
+    self:RecordCombatSignals(actorID, timestampMS, firing, health, previousHealth)
 
     return true
 end

@@ -1118,7 +1118,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
     end
 
     local timestampMS = self.RoundElapsedTimer.ElapsedSimTimeMS;
-    local shadowTimer = Timer();
+    local cpuStartSeconds = os.clock();
     local visibleOpponentTotal = 0;
     local visibleOpponentChecks = 0;
     local actorSkips = 0;
@@ -1133,6 +1133,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     self:FindNearestDirectEnemy(actor, enemies);
                 local opponents = {};
                 local visibilityByID = {};
+                local rayDetailsByID = {};
 
                 for _, opponent in ipairs(enemies) do
                     if MovableMan:IsActor(opponent) and not opponent:IsDead() then
@@ -1142,22 +1143,38 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                             SceneMan.SceneWrapsX
                         );
                         local distanceSquared = ray.X * ray.X + ray.Y * ray.Y;
-                        local obstacleDistance = SceneMan:CastObstacleRay(
+                        local hitMOID = SceneMan:CastMORay(
                             actor.Pos,
                             ray,
-                            Vector(),
-                            Vector(),
                             actor.ID,
                             actor.IgnoresWhichTeam,
-                            rte.grassID,
-                            3
+                            rte.airID,
+                            false,
+                            0
                         );
+                        local targetRootMOID = MovableMan:GetRootMOID(opponent.ID);
                         opponents[#opponents + 1] = {
                             UniqueID = opponent.UniqueID,
                             distanceSquared = distanceSquared,
                             actor = opponent
                         };
-                        visibilityByID[opponent.UniqueID] = obstacleDistance < 0;
+                        visibilityByID[opponent.UniqueID] =
+                            self.AIController.IsVisibleRayHit(
+                                hitMOID,
+                                opponent.ID,
+                                targetRootMOID,
+                                rte.NoMOID
+                            );
+                        rayDetailsByID[opponent.UniqueID] = {
+                            rayReturn = hitMOID,
+                            hitMOID = hitMOID,
+                            targetMOID = opponent.ID,
+                            targetRootMOID = targetRootMOID,
+                            startX = actor.Pos.X,
+                            startY = actor.Pos.Y,
+                            endX = opponent.Pos.X,
+                            endY = opponent.Pos.Y
+                        };
                         visibleOpponentChecks = visibleOpponentChecks + 1;
                     end
                 end
@@ -1167,6 +1184,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                 visibleOpponentTotal = visibleOpponentTotal + visibleOpponentCount;
                 local enemy = visibleEnemy and visibleEnemy.actor or nil;
                 local distanceSquared = visibleDistanceSquared or nearestDistanceSquared;
+                local nearestRayDetails = nearestEnemy and rayDetailsByID[nearestEnemy.UniqueID] or nil;
                 local waypoint = actor:GetLastAIWaypoint();
                 local item = actor.EquippedItem;
                 local firing = false;
@@ -1233,6 +1251,14 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     team = actor.Team,
                     enemy = nearestEnemy and nearestEnemy.UniqueID or nil,
                     nearestVisibleEnemy = enemy and enemy.UniqueID or nil,
+                    rayReturn = nearestRayDetails and nearestRayDetails.rayReturn or nil,
+                    hitMOID = nearestRayDetails and nearestRayDetails.hitMOID or nil,
+                    targetMOID = nearestRayDetails and nearestRayDetails.targetMOID or nil,
+                    targetRootMOID = nearestRayDetails and nearestRayDetails.targetRootMOID or nil,
+                    rayStartX = nearestRayDetails and nearestRayDetails.startX or nil,
+                    rayStartY = nearestRayDetails and nearestRayDetails.startY or nil,
+                    rayEndX = nearestRayDetails and nearestRayDetails.endX or nil,
+                    rayEndY = nearestRayDetails and nearestRayDetails.endY or nil,
                     distance = distanceSquared and math.sqrt(distanceSquared) or nil,
                     health = actor.Health,
                     prevHealth = actor.PrevHealth,
@@ -1259,8 +1285,44 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
         visibleOpponents = visibleOpponentTotal,
         visibleOpponentChecks = visibleOpponentChecks,
         actorSkips = actorSkips,
-        elapsedMS = shadowTimer.ElapsedRealTimeMS
+        elapsedMS = self.AIController.CalculateCPUTimeMS(cpuStartSeconds, os.clock())
     });
+end
+
+function SpectatorArena:UpdateAIFireDamageLatches(team1Actors, team2Actors)
+    if self.AI_V2_MODE ~= "SHADOW"
+        or not self.AIController
+        or not self.AISpawnSettled
+    then
+        return;
+    end
+
+    local timestampMS = self.RoundElapsedTimer.ElapsedSimTimeMS;
+
+    local function sampleSignals(actors)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor)
+                and not actor:IsDead()
+                and self.AIReleasedActors[actor.UniqueID]
+            then
+                local item = actor.EquippedItem;
+                local firing = false;
+                if item and IsHDFirearm(item) then
+                    firing = ToHDFirearm(item).FiredFrame == true;
+                end
+                self.AIController:RecordCombatSignals(
+                    actor.UniqueID,
+                    timestampMS,
+                    firing,
+                    actor.Health,
+                    actor.PrevHealth
+                );
+            end
+        end
+    end
+
+    sampleSignals(team1Actors);
+    sampleSignals(team2Actors);
 end
 
 function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)
@@ -1323,6 +1385,7 @@ function SpectatorArena:UpdateActivity()
         team1Actors,
         team2Actors
     );
+    self:UpdateAIFireDamageLatches(team1Actors, team2Actors);
     self:UpdateAIInstrumentation(team1Actors, team2Actors);
 
     if self.RoundOver then

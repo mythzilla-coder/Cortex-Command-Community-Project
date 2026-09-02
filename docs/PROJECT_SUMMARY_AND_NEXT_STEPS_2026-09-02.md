@@ -101,6 +101,7 @@ This is not an activation baseline. The approved evidence gate requires at least
 - The first non-default SHADOW plumbing smoke trace passed instrumentation, but it produced no LOS-positive or firing-positive observations.
 - The follow-up evidence phase now evaluates all living opponents for LOS, selects the nearest visible opponent, and records aggregate visibility, contact-transition, actor-skip, and execution-cost metrics.
 - A native three-round SHADOW smoke was completed after the Windows Debug Release x64 build. It showed both teams and zero pre-touchdown observations/watchdogs, but still had zero visible opponents, LOS positives, firing positives, and contact transitions; reported execution cost was zero and is not yet trusted.
+- A sensor-validation follow-up replaced obstacle-ray boolean interpretation with explicit `CastMORay` target/root-MOID matching. Three fresh rounds produced nonzero CPU-cost measurements (185/276/270 ms) and durable damage events, but still zero visible opponents, LOS positives, fire events, or contact transitions. Raw ray IDs are now recorded; semantic validation remains blocked.
 - No claim can be made about improved win rate, tactical quality, CPU/UPS impact, recovery quality, or hidden-position violations.
 - The nearest-enemy observation is conservative but does not provide direct killer/instigator attribution.
 - The existing camera-review files are separate user work and remain dirty/uncommitted.

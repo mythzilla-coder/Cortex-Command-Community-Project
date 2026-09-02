@@ -20,6 +20,12 @@ local function assertFalse(value, message)
     end
 end
 
+assertTrue(Controller.IsVisibleRayHit(42, 42, 42, -1), "direct target ray hit is visible")
+assertTrue(Controller.IsVisibleRayHit(99, 42, 99, -1), "target child ray hit is visible")
+assertFalse(Controller.IsVisibleRayHit(-1, 42, 42, -1), "terrain ray hit is blocked")
+assertFalse(Controller.IsVisibleRayHit(77, 42, 42, -1), "intervening actor ray hit is blocked")
+assertEqual(Controller.CalculateCPUTimeMS(1.25, 1.5), 250, "CPU time converts to milliseconds")
+
 local controller = Controller.Create({
     mode = "OFF",
     positionHistoryLimit = 2,
@@ -109,6 +115,12 @@ assertEqual(controller.Metrics.ContactAcquisitions, 1, "contact acquisition is l
 assertEqual(controller.Metrics.ContactLosses, 1, "contact loss is latched")
 assertTrue(controller:FiredRecently(101, 13000, 1000), "recent fire latch remains active")
 assertFalse(controller:FiredRecently(101, 13501, 1000), "recent fire latch expires")
+
+local fireEventsBeforeSignal = controller.Metrics.FireEvents
+local damageEventsBeforeSignal = controller.Metrics.DamageEvents
+controller:RecordCombatSignals(101, 14000, true, 70, 80)
+assertEqual(controller.Metrics.FireEvents, fireEventsBeforeSignal + 1, "high-frequency fire signal is latched")
+assertEqual(controller.Metrics.DamageEvents, damageEventsBeforeSignal + 1, "high-frequency damage signal is latched")
 
 controller:RecordShadowBatchMetrics({
     visibleOpponents = 3,
