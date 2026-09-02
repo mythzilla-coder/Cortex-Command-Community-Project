@@ -35,6 +35,7 @@ The project runs an autonomous spectator arena using Cortex Command's native `Na
 - The first non-default SHADOW trace was captured: 2,393 observations across four started rounds, with no LOS-positive or firing-positive samples. It passed lifecycle and plumbing checks but was semantically incomplete.
 - The telemetry path no longer snapshots the console per event; explicit snapshots occur at round-result boundaries.
 - Deterministic nearest-visible opponent selection and aggregate SHADOW visibility/cost/contact metrics are now implemented in the latest checkout.
+- Native runtime follow-up: the Debug Release x64 build passed and three SHADOW rounds ran without watchdogs or pre-touchdown observations, but semantic evidence remained zero-positive and execution-cost reporting returned zero.
 
 ## Review questions
 

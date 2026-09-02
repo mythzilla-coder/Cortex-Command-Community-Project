@@ -541,7 +541,13 @@ function SpectatorArena:FinishRound(winner)
             losChecks = aiSnapshot.LOSChecks,
             losPositive = aiSnapshot.LOSPositive,
             fireEvents = aiSnapshot.FireEvents,
-            damageEvents = aiSnapshot.DamageEvents
+            damageEvents = aiSnapshot.DamageEvents,
+            visibleOpponents = aiSnapshot.VisibleOpponents,
+            visibleOpponentChecks = aiSnapshot.VisibleOpponentChecks,
+            actorSkips = aiSnapshot.ActorSkips,
+            contactAcquisitions = aiSnapshot.ContactAcquisitions,
+            contactLosses = aiSnapshot.ContactLosses,
+            shadowObservationTimeMS = aiSnapshot.ShadowObservationTimeMS
         });
     end
     self.Telemetry.Snapshot();

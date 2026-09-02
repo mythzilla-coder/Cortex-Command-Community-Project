@@ -58,3 +58,19 @@ This validates the I/O hypothesis but is not a complete frame-pacing benchmark. 
 ## Next evidence step
 
 Capture a larger SHADOW sample using the deterministic any-visible LOS selection and the new counters for visible opponents, visibility checks, contact acquisition/loss, actor skips, and AI V2 execution cost. Then complete the 50-round OFF baseline for comparison.
+
+## Follow-up native semantic smoke
+
+A native Windows `Debug Release|x64` build completed successfully before this run. A temporary SHADOW run then completed three rounds before being stopped and the source mode was restored to `OFF`.
+
+- Observations: 2,597 across the three completed-round summaries.
+- Both teams represented: team 0 = 1,411 observations; team 1 = 1,192 observations.
+- Pre-touchdown observations: 0.
+- Watchdogs: 0.
+- Visible opponents: 0.
+- LOS-positive observations: 0.
+- Firing-positive observations: 0.
+- Contact acquisitions/losses: 0/0.
+- Reported `shadowObservationTimeMS`: 0 in all three summaries; this is not accepted as valid execution-cost evidence and requires instrumentation follow-up.
+
+This validates native loading, lifecycle gating, telemetry emission, and runtime stability only. It does not pass the semantic SHADOW gate and does not justify TASKS-A.

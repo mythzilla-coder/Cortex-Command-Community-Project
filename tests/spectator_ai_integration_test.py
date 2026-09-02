@@ -56,6 +56,10 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertNotIn("AddAISceneWaypoint", shadow_body)
         self.assertNotIn("AddAIMOWaypoint", shadow_body)
         self.assertIn('self.Telemetry.Emit("AI_SHADOW_ROUND_SUMMARY"', source)
+        self.assertIn("visibleOpponents = aiSnapshot.VisibleOpponents", source)
+        self.assertIn("visibleOpponentChecks = aiSnapshot.VisibleOpponentChecks", source)
+        self.assertIn("actorSkips = aiSnapshot.ActorSkips", source)
+        self.assertIn("shadowObservationTimeMS = aiSnapshot.ShadowObservationTimeMS", source)
 
         instrumentation_start = source.index("function SpectatorArena:UpdateAIInstrumentation")
         instrumentation_end = source.index("\nfunction ", instrumentation_start + 10)
