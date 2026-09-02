@@ -90,6 +90,17 @@ Correction:
 Status:
 - This is preliminary evidence, not the required 50-round activation baseline.
 
+## 2026-09-02 — Extended OFF-mode baseline sample
+
+Observed:
+- A second fresh run completed two additional rounds before round 3 remained active at the evidence checkpoint.
+- This run: `2/3` rounds completed, winners `RONIN_WINS=1`, `DUMMY_WINS=1`, watchdog events `0`.
+- Completed-round durations were `37798.488 ms` and `34015.306 ms` (average `35906.897 ms`).
+
+Status:
+- Combined with the earlier sample, four completed rounds are now observed across two runs; this remains far below the required 50-round baseline.
+- `AI_V2_MODE` remains `OFF`; no SHADOW or tactical activation decision is justified yet.
+
 ## 2026-09-02 — Deterministic soak parser
 
 Changed:
