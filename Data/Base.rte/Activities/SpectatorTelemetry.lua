@@ -34,7 +34,11 @@ end
 
 function Telemetry.Emit(event, fields, sink)
     local line = Telemetry.Encode(event, fields)
-    (sink or print)(line)
+    if sink then
+        sink(line)
+    else
+        print(line)
+    end
     return line
 end
 
