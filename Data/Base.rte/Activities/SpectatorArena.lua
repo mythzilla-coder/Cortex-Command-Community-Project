@@ -127,11 +127,17 @@ function SpectatorArena:SpawnRound()
         ];
 
     repeat
-        self.Team2Faction =
+    self.Team2Faction =
             self.FactionPool[
                 math.random(1, #self.FactionPool)
             ];
     until self.Team2Faction ~= self.Team1Faction;
+
+    self.Telemetry.Emit("ROUND_START", {
+        round = self.RoundNumber,
+        team1 = self.Team1Faction,
+        team2 = self.Team2Faction
+    });
 
 
     local team1X =
@@ -514,12 +520,20 @@ function SpectatorArena:FinishRound(winner)
         " finished - " ..
         self.RoundResultText
     );
+    self.Telemetry.Emit("ROUND_RESULT", {
+        round = self.RoundNumber,
+        winner = self.RoundResultText,
+        durationMS = self.RoundElapsedTimer.ElapsedSimTimeMS,
+        team1Score = self.Team1Score,
+        team2Score = self.Team2Score
+    });
 end
 
 
 function SpectatorArena:TransitionState(nextState)
     if self.State ~= nextState then
         self.State = nextState;
+        self.Telemetry.Emit("STATE", { round = self.RoundNumber, state = nextState });
         print("SpectatorArena: " .. nextState .. " " .. tostring(self.RoundNumber));
     end
 end
@@ -527,6 +541,12 @@ end
 
 function SpectatorArena:ResolveWatchdog(team1Alive, team2Alive)
     print("SpectatorArena: WATCHDOG_TIMEOUT");
+    self.Telemetry.Emit("WATCHDOG", {
+        round = self.RoundNumber,
+        team1Alive = team1Alive,
+        team2Alive = team2Alive,
+        reason = "timeout"
+    });
 
     if team1Alive > team2Alive then
         print("SpectatorArena: WATCHDOG_RESULT TEAM_1");
@@ -543,6 +563,8 @@ end
 
 function SpectatorArena:StartActivity()
     print("SpectatorArena: autonomous AI vs AI spectator");
+    self.Telemetry = require("Activities/SpectatorTelemetry");
+    self.Telemetry.Emit("ACTIVITY_START", {});
 
     self.Team1 = Activity.TEAM_1;
     self.Team2 = Activity.TEAM_2;
@@ -632,7 +654,7 @@ function SpectatorArena:StartActivity()
 
     -- TEMPORARY RAW CAMERA DIAGNOSTIC.
     -- Bypasses normal timing/cooldown policy so selector behavior can be observed.
-    self.CameraRawDiagnosticMode = true;
+    self.CameraRawDiagnosticMode = false;
     self.CameraRawLastTargetType = nil;
     self.CameraRawLastActorID = nil;
     self.CameraRawLastEnemyID = nil;
