@@ -63,7 +63,7 @@ Read:
 
 ## Observability state
 
-The telemetry helper and Python soak parser are implemented and unit-tested. The live game has reached `BATTLE`, but recent runtime logs did not contain `SPECTATOR_EVENT` lines; this remains an unresolved runtime-observability issue and must not be reported as fixed without fresh log evidence.
+The telemetry helper and Python soak parser are implemented and unit-tested. Root-cause review found that Lua `print` is routed into the in-memory `ConsoleMan` buffer, while `LogConsole.txt` is written only during orderly `ConsoleMan::Destroy()`. Historical logs without `SPECTATOR_EVENT` lines therefore do not prove emission failure when the run was force-stopped. Capture a fresh `-cout` stdout stream or close the engine cleanly before treating live telemetry as verified.
 
 Relevant files:
 

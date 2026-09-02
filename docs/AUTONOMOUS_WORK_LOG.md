@@ -62,6 +62,16 @@ Preservation:
 - `AI_V2_MODE` remains `OFF`; no tasks, tactical orders, contact sharing, or NativeHumanAI replacement was enabled.
 - Uncommitted camera-review files remain untouched and uncommitted.
 
+## 2026-09-02 — Telemetry transport root-cause review
+
+Finding:
+- Lua `print` is overridden by the engine to call `ConsoleMan:PrintString`, so the telemetry helper’s default emission path is valid.
+- `LogConsole.txt` is written from `ConsoleMan::Destroy()` as a shutdown snapshot. Forced process termination can discard buffered records, explaining the apparent live-log gap.
+
+Action:
+- Documented `-cout` stdout capture and orderly shutdown as the valid runtime verification paths.
+- Kept the telemetry implementation unchanged until a fresh clean capture provides evidence for any further fix.
+
 ## 2026-09-02 — Deterministic soak parser
 
 Changed:

@@ -12,7 +12,9 @@ SPECTATOR_EVENT event=ROUND_RESULT round=1 winner=COALITION_RTE_WINS durationMS=
 SPECTATOR_EVENT event=WATCHDOG round=2 team1Alive=3 team2Alive=3 reason=timeout
 ```
 
-`Data/Base.rte/Activities/SpectatorTelemetry.lua` owns encoding and emission. It is intentionally dependency-free and accepts a test sink so behavior can be verified without starting the game. The game’s `print` output is the current transport; future soak tooling can filter on the stable prefix.
+`Data/Base.rte/Activities/SpectatorTelemetry.lua` owns encoding and emission. It is intentionally dependency-free and accepts a test sink so behavior can be verified without starting the game. The game’s Lua `print` output is routed into `ConsoleMan` and is the current transport; future soak tooling can filter on the stable prefix.
+
+`LogConsole.txt` is a shutdown snapshot, not a live append-only file: `ConsoleMan::Destroy()` writes the in-memory console buffer when the engine exits normally. For live capture, launch the executable with `-cout` and capture stdout, or close the game cleanly before reading `LogConsole.txt`. A forced process termination can discard the in-memory records and falsely appear to show a telemetry gap.
 
 The dependency-free Python report tool reads a captured console log:
 
@@ -29,4 +31,4 @@ lua tests/spectator_camera_event_test.lua
 lua tests/spectator_telemetry_test.lua
 ```
 
-The current live-runtime gap is separate: recent game logs reached `BATTLE` but contained no `SPECTATOR_EVENT` lines, so the soak report cannot yet be trusted for live runs until module loading/output transport is diagnosed.
+The remaining runtime verification requirement is to capture a clean `-cout` or orderly-shutdown run and confirm `SPECTATOR_EVENT` lines in the resulting output. Existing historical logs reached `BATTLE` but lacked those lines; because they were collected from a shutdown snapshot/forced smoke workflow, they are not sufficient to distinguish missing emission from missing flush.
