@@ -86,7 +86,12 @@ function SpectatorAIController.Create(config)
         Metrics = {
             PositionSamples = 0,
             ContactObservations = 0,
-            EngagementObservations = 0
+            EngagementObservations = 0,
+            ShadowObservations = 0,
+            LOSChecks = 0,
+            LOSPositive = 0,
+            FireEvents = 0,
+            DamageEvents = 0
         }
     }
 
@@ -103,7 +108,12 @@ function SpectatorAIController:BeginRound(roundID, seed)
     self.Metrics = {
         PositionSamples = 0,
         ContactObservations = 0,
-        EngagementObservations = 0
+        EngagementObservations = 0,
+        ShadowObservations = 0,
+        LOSChecks = 0,
+        LOSPositive = 0,
+        FireEvents = 0,
+        DamageEvents = 0
     }
 end
 
@@ -154,6 +164,10 @@ function SpectatorAIController:RecordPosition(actorID, timestampMS, x, y, waypoi
 end
 
 function SpectatorAIController:RecordContact(team, enemyID, timestampMS, x, y, confidence, source)
+    if source == "WORLD_TRUTH" then
+        return false
+    end
+
     self.ContactMemory[team] = self.ContactMemory[team] or {}
     local contact = self.ContactMemory[team][enemyID]
 
@@ -180,6 +194,66 @@ function SpectatorAIController:RecordContact(team, enemyID, timestampMS, x, y, c
     end
 
     self.Metrics.ContactObservations = self.Metrics.ContactObservations + 1
+    return true
+end
+
+function SpectatorAIController:RecordFireEvent(actorID, timestampMS)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    actor.LastFireTimeMS = timestampMS
+    actor.FireEventCount = (actor.FireEventCount or 0) + 1
+    self.Metrics.FireEvents = self.Metrics.FireEvents + 1
+    return true
+end
+
+function SpectatorAIController:FiredRecently(actorID, timestampMS, windowMS)
+    local actor = self.ActorState[actorID]
+    return actor ~= nil
+        and actor.LastFireTimeMS ~= nil
+        and timestampMS - actor.LastFireTimeMS <= (windowMS or 1000)
+end
+
+function SpectatorAIController:RecordDamage(actorID, timestampMS, amount)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    actor.LastDamageTimeMS = timestampMS
+    actor.DamageEventCount = (actor.DamageEventCount or 0) + 1
+    actor.LastDamageAmount = amount
+    self.Metrics.DamageEvents = self.Metrics.DamageEvents + 1
+    return true
+end
+
+function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, hasLOS, firing, health, previousHealth)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    self.Metrics.ShadowObservations = self.Metrics.ShadowObservations + 1
+    self.Metrics.LOSChecks = self.Metrics.LOSChecks + 1
+    if hasLOS then
+        self.Metrics.LOSPositive = self.Metrics.LOSPositive + 1
+    end
+
+    if firing then
+        self:RecordFireEvent(actorID, timestampMS)
+    end
+
+    if type(health) == "number" then
+        if actor.LastObservedHealth ~= nil and health < actor.LastObservedHealth then
+            self:RecordDamage(actorID, timestampMS, actor.LastObservedHealth - health)
+        end
+        actor.LastObservedHealth = health
+    elseif type(previousHealth) == "number" and actor.LastObservedHealth == nil then
+        actor.LastObservedHealth = previousHealth
+    end
+
     return true
 end
 
@@ -316,7 +390,12 @@ function SpectatorAIController:Snapshot()
         ReleasedActors = releasedActors,
         PositionSamples = self.Metrics.PositionSamples,
         ContactObservations = self.Metrics.ContactObservations,
-        EngagementObservations = self.Metrics.EngagementObservations
+        EngagementObservations = self.Metrics.EngagementObservations,
+        ShadowObservations = self.Metrics.ShadowObservations,
+        LOSChecks = self.Metrics.LOSChecks,
+        LOSPositive = self.Metrics.LOSPositive,
+        FireEvents = self.Metrics.FireEvents,
+        DamageEvents = self.Metrics.DamageEvents
     }
 end
 

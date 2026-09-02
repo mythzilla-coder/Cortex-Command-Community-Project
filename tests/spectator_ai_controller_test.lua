@@ -53,6 +53,8 @@ assertEqual(controller.ContactMemory[1][202].x, 200, "memory observation does no
 assertEqual(controller.ContactMemory[1][202].Confidence, 0.5, "memory confidence can decay explicitly")
 assertEqual(controller:GetContact(1, 202, 3000).x, 200, "live contact returns frozen position")
 assertEqual(controller:GetContact(1, 202, 6000), nil, "expired contact is not returned")
+assertFalse(controller:RecordContact(1, 404, 2600, 400, 400, 1.0, "WORLD_TRUTH"),
+    "world-truth coordinates cannot enter team contact memory")
 
 controller:RecordEngagement(101, 1000, "FIRE", 2500)
 assertTrue(controller:IsHardEngaged(101, 2000), "engagement lock remains active until expiry")
@@ -83,6 +85,16 @@ assertEqual(controller:GetRecoveryStage(101), 1, "first stall escalates one reco
 controller:RecordProgress(101, 11002, 10)
 assertEqual(controller:GetRecoveryStage(101), 2, "continued stall escalates only one stage at a time")
 assertEqual(controller:GetRecoveryStage(101), 2, "recovery stage remains bounded between observations")
+
+controller:RecordShadowObservation(101, 12000, true, false, 90, 100)
+controller:RecordShadowObservation(101, 12500, false, true, 80, 90)
+assertEqual(controller.Metrics.ShadowObservations, 2, "shadow observations are aggregated")
+assertEqual(controller.Metrics.LOSChecks, 2, "LOS checks are aggregated")
+assertEqual(controller.Metrics.LOSPositive, 1, "positive LOS checks are aggregated")
+assertEqual(controller.Metrics.FireEvents, 1, "fire events are latched")
+assertEqual(controller.Metrics.DamageEvents, 1, "damage events are latched")
+assertTrue(controller:FiredRecently(101, 13000, 1000), "recent fire latch remains active")
+assertFalse(controller:FiredRecently(101, 13501, 1000), "recent fire latch expires")
 
 local closeWeapon = Controller.ClassifyWeapon({ effectiveRange = 100, projectileCount = 8, spread = 0.4 })
 assertEqual(closeWeapon.Class, "CLOSE", "scatter weapon is classified for close engagement")
