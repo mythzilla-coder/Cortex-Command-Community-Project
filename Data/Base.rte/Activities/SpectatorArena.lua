@@ -533,6 +533,17 @@ function SpectatorArena:FinishRound(winner)
         team1Score = self.Team1Score,
         team2Score = self.Team2Score
     });
+    if self.AI_V2_MODE == "SHADOW" then
+        local aiSnapshot = self.AIController:Snapshot();
+        self.Telemetry.Emit("AI_SHADOW_ROUND_SUMMARY", {
+            round = self.RoundNumber,
+            observations = aiSnapshot.ShadowObservations,
+            losChecks = aiSnapshot.LOSChecks,
+            losPositive = aiSnapshot.LOSPositive,
+            fireEvents = aiSnapshot.FireEvents,
+            damageEvents = aiSnapshot.DamageEvents
+        });
+    end
     self.Telemetry.Snapshot();
 end
 
@@ -1150,6 +1161,20 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     end
                 end
 
+                self.AIController:RecordShadowObservation(
+                    actor.UniqueID,
+                    timestampMS,
+                    hasLOS,
+                    firing,
+                    actor.Health,
+                    actor.PrevHealth
+                );
+                local firedRecently = self.AIController:FiredRecently(
+                    actor.UniqueID,
+                    timestampMS,
+                    1000
+                );
+
                 local waypointDistance = SceneMan:ShortestDistance(
                     actor.Pos,
                     waypoint,
@@ -1165,7 +1190,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     progress
                 );
 
-                if firing and enemy and hasLOS then
+                if firedRecently and enemy and hasLOS then
                     self.AIController:RecordEngagement(
                         actor.UniqueID,
                         timestampMS,
@@ -1183,6 +1208,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     health = actor.Health,
                     prevHealth = actor.PrevHealth,
                     firing = firing,
+                    firedRecently = firedRecently,
                     hasLOS = hasLOS,
                     waypointX = waypoint.X,
                     waypointY = waypoint.Y,

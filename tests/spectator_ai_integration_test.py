@@ -43,12 +43,15 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
 
         self.assertIn('self.AI_V2_MODE ~= "SHADOW"', shadow_body)
         self.assertIn("self.AIController:RecordContact(", shadow_body)
+        self.assertIn("self.AIController:RecordShadowObservation(", shadow_body)
+        self.assertIn("self.AIController:FiredRecently(", shadow_body)
         self.assertIn("self.AIController:RecordEngagement(", shadow_body)
         self.assertIn('self.Telemetry.Emit("AI_SHADOW_OBSERVATION"', shadow_body)
         self.assertNotIn("AIMode =", shadow_body)
         self.assertNotIn("ClearAIWaypoints", shadow_body)
         self.assertNotIn("AddAISceneWaypoint", shadow_body)
         self.assertNotIn("AddAIMOWaypoint", shadow_body)
+        self.assertIn('self.Telemetry.Emit("AI_SHADOW_ROUND_SUMMARY"', source)
 
         instrumentation_start = source.index("function SpectatorArena:UpdateAIInstrumentation")
         instrumentation_end = source.index("\nfunction ", instrumentation_start + 10)
