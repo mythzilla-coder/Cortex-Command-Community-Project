@@ -63,6 +63,8 @@ After all living actors pass the existing touchdown/release gate, SHADOW mode ca
 
 These observations emit `AI_SHADOW_OBSERVATION` telemetry and do not set AIMode, add or clear waypoints, alter position, alter health, alter inventory, or inject controller input.
 
+Telemetry performance correction: `Telemetry.Emit()` is now cheap and no longer snapshots the full console. Explicit snapshots occur at low-frequency round-result boundaries, eliminating per-observation disk writes during SHADOW.
+
 ## Verified engine APIs
 
 Observation-safe APIs include actor health/previous health, aim angle, last AI waypoint, move-path state, dig/jump properties, firearm firing/muzzle state, wound count, SceneMan distance/ray queries, MovableMan local MO queries, AI timing values, and bounded path-calculation interfaces.
@@ -97,6 +99,7 @@ This is not an activation baseline. The approved evidence gate requires at least
 
 - AI V2 scoring helpers are implemented and tested but are not yet driving actor behavior.
 - No non-default SHADOW trace has been captured or reviewed yet.
+- A first SHADOW smoke trace has been captured; instrumentation passed, but it produced no LOS-positive or firing-positive observations.
 - No claim can be made about improved win rate, tactical quality, CPU/UPS impact, recovery quality, or hidden-position violations.
 - The nearest-enemy observation is conservative but does not provide direct killer/instigator attribution.
 - The existing camera-review files are separate user work and remain dirty/uncommitted.
