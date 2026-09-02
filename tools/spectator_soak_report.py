@@ -20,7 +20,10 @@ def parse(lines):
             completed += 1
             winner = fields.get("winner", "UNKNOWN")
             winners[winner] += 1
-            if fields.get("durationMS", "").isdigit(): durations.append(int(fields["durationMS"]))
+            try:
+                durations.append(float(fields["durationMS"]))
+            except (KeyError, TypeError, ValueError):
+                pass
         elif event == "WATCHDOG": watchdogs += 1
     report = {
         "events": events, "rounds_started": starts, "rounds_completed": completed,

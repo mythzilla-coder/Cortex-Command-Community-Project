@@ -24,10 +24,11 @@ class SoakReportTests(unittest.TestCase):
     def test_accepts_engine_print_prefix_in_console_snapshot(self):
         result = report.parse([
             "PRINT: SPECTATOR_EVENT event=ROUND_START round=3",
-            "PRINT: SPECTATOR_EVENT event=ROUND_RESULT round=3 winner=TEAM_2 durationMS=900"
+            "PRINT: SPECTATOR_EVENT event=ROUND_RESULT round=3 winner=TEAM_2 durationMS=900.5"
         ])
         self.assertEqual(result["rounds_started"], 1)
         self.assertEqual(result["rounds_completed"], 1)
         self.assertEqual(result["winners"], {"TEAM_2": 1})
+        self.assertEqual(result["duration_ms"]["average"], 900.5)
 
 if __name__ == "__main__": unittest.main()

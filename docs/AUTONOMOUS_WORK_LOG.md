@@ -77,6 +77,19 @@ Verification:
 - The parser correctly reported `1` started and `0` completed rounds for the intentionally short run.
 - Runtime snapshot is ignored by Git; no generated log is committed.
 
+## 2026-09-02 — Preliminary OFF-mode baseline soak
+
+Observed:
+- Fresh rebuilt executable ran through two completed rounds and entered a third before the exact process was stopped.
+- Results: `2/3` rounds completed, winners `RONIN_WINS=1`, `DUMMY_WINS=1`, watchdog events `0`.
+- Completed-round durations were `33915.31 ms` and `60464.248 ms` (average `47189.779 ms`).
+
+Correction:
+- The live engine emits decimal `durationMS` values. Updated `tools/spectator_soak_report.py` and its test to parse numeric durations instead of integers only.
+
+Status:
+- This is preliminary evidence, not the required 50-round activation baseline.
+
 ## 2026-09-02 — Deterministic soak parser
 
 Changed:
