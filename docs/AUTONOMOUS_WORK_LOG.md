@@ -154,3 +154,17 @@ Evidence boundary:
 - No behavior-enabled AI decision has been activated.
 - No non-default SHADOW runtime trace has yet been used to claim contact, task, recovery, CPU/UPS, or tactical quality improvements.
 - Production remains OFF pending a deliberate SHADOW evidence capture and the required 50 completed OFF-mode baseline rounds.
+
+## 2026-09-02 — SHADOW smoke test
+
+Observed in a temporary non-default SHADOW run:
+
+- 4 rounds started, 3 completed, 0 watchdog events.
+- 2,393 `AI_SHADOW_OBSERVATION` records: round counts 768, 714, 735, and 176.
+- 0 LOS-positive records and 0 firing-positive records; contact/engagement semantics were therefore not exercised.
+- No observation appeared before the first `AI_TOUCHDOWN_ALL_RELEASED` marker.
+- Completed-round durations were 37,565.164 ms, 45,114.862 ms, and 47,598.096 ms.
+
+Decision:
+- SHADOW instrumentation plumbing passes, but semantic readiness is incomplete. Keep production `OFF`; do not activate TASKS or TACTICAL behavior.
+- Full details: `docs/SPECTATOR_AI_V2_SHADOW_SMOKE_REPORT_2026-09-02.md`.
