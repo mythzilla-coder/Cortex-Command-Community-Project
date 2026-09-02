@@ -19,4 +19,17 @@ Preservation:
 
 Next:
 - Run Lua tests with the game/runtime interpreter.
-- Add a deterministic soak-log parser once the event line format is confirmed against a real game log.
+- Use `tools/spectator_soak_report.py` on a captured game log and extend fields only when real output confirms them.
+
+## 2026-09-02 — Deterministic soak parser
+
+Changed:
+- Added `tools/spectator_soak_report.py` to aggregate structured events.
+- Added two Python unit tests covering noise, completed rounds, incomplete final rounds, durations, and watchdog events.
+
+Verification:
+- `python -m unittest tests/test_spectator_soak_report.py -v` — PASS (2 tests).
+- `git diff --check` — PASS.
+
+Commit:
+- `642c549f0 Add spectator soak report parser`
