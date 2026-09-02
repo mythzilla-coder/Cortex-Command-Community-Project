@@ -2,7 +2,7 @@
 
 Generated: 2026-09-02
 Branch: `spectator-random-factions`
-HEAD: `26b5f35f2a69d3d3f43c9b57ae05712340382eef`
+HEAD at snapshot creation: `26b5f35f2a69d3d3f43c9b57ae05712340382eef`
 
 This manifest accompanies the source files uploaded to Drive for independent ChatGPT review. The local repository remains the engineering source of truth.
 
