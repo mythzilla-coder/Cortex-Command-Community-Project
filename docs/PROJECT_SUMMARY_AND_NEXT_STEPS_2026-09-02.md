@@ -99,6 +99,7 @@ This is not an activation baseline. The approved evidence gate requires at least
 
 - AI V2 scoring helpers are implemented and tested but are not yet driving actor behavior.
 - The first non-default SHADOW plumbing smoke trace passed instrumentation, but it produced no LOS-positive or firing-positive observations.
+- The follow-up evidence phase now evaluates all living opponents for LOS, selects the nearest visible opponent, and records aggregate visibility, contact-transition, actor-skip, and execution-cost metrics.
 - No claim can be made about improved win rate, tactical quality, CPU/UPS impact, recovery quality, or hidden-position violations.
 - The nearest-enemy observation is conservative but does not provide direct killer/instigator attribution.
 - The existing camera-review files are separate user work and remain dirty/uncommitted.

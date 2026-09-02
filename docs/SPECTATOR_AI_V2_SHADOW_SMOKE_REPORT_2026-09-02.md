@@ -35,7 +35,7 @@ Validate the SHADOW instrumentation path and its lifecycle boundary before colle
 
 The smoke test validates event transport, round lifecycle ordering, post-release gating, and basic observation volume. It did not exercise direct contact acquisition, engagement locks, firing capture, or meaningful LOS differentiation because this trace contained no LOS-positive or firing-positive samples.
 
-The current 500 ms observation cadence should not be treated as a reliable firing-event detector. A future implementation should capture high-frequency fire/damage timestamps and let the slower tactical loop consume those observations.
+The current 500 ms observation cadence should not be treated as a reliable firing-event detector. Fire and damage latches now preserve transitions observed by the SHADOW loop, but a future implementation should capture high-frequency timestamps and let the slower tactical loop consume those observations.
 
 The log's nearest-enemy ID/distance fields are diagnostic world-truth observations. They must remain separate from team knowledge and must not become strategic targets when LOS is false.
 
@@ -57,4 +57,4 @@ This validates the I/O hypothesis but is not a complete frame-pacing benchmark. 
 
 ## Next evidence step
 
-Capture a larger SHADOW sample after adding explicit counters for contact acquisition/loss, memory expiry, target reservations, recovery transitions, actor skips, malformed telemetry, ray count, and AI V2 execution cost. Then complete the 50-round OFF baseline for comparison.
+Capture a larger SHADOW sample using the deterministic any-visible LOS selection and the new counters for visible opponents, visibility checks, contact acquisition/loss, actor skips, and AI V2 execution cost. Then complete the 50-round OFF baseline for comparison.

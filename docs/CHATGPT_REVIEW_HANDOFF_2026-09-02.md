@@ -32,7 +32,9 @@ The project runs an autonomous spectator arena using Cortex Command's native `Na
 - Debug Release x64 build passes with 0 errors.
 - Four completed OFF rounds have been observed in preliminary short runs.
 - The required OFF baseline is 50 completed rounds.
-- No non-default SHADOW trace has been captured yet.
+- The first non-default SHADOW trace was captured: 2,393 observations across four started rounds, with no LOS-positive or firing-positive samples. It passed lifecycle and plumbing checks but was semantically incomplete.
+- The telemetry path no longer snapshots the console per event; explicit snapshots occur at round-result boundaries.
+- Deterministic nearest-visible opponent selection and aggregate SHADOW visibility/cost/contact metrics are now implemented in the latest checkout.
 
 ## Review questions
 
@@ -41,7 +43,7 @@ The project runs an autonomous spectator arena using Cortex Command's native `Na
 3. Identify any engine API assumptions that should be verified before runtime SHADOW capture.
 4. Recommend the smallest useful SHADOW evidence experiment and the exact metrics to collect.
 5. Recommend whether to prioritize the 50-round OFF baseline, SHADOW capture, parser/report improvements, or another safety task.
-6. Propose one narrowly scoped behavior-enabled experiment only if the evidence gate is satisfied; include rollback criteria.
+6. Propose one narrowly scoped behavior-enabled experiment only if the evidence gate is satisfied; include rollback criteria. TASKS remains blocked for now.
 
 ## Desired review output
 

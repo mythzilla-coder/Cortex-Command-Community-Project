@@ -2,7 +2,7 @@
 
 Date: 2026-09-02  
 Branch: `spectator-random-factions`  
-Current HEAD: `a8d178ffb Record extended spectator baseline sample`
+Current HEAD: `840e14b50 Measure any-visible SHADOW contacts`
 
 ## What the project is
 
@@ -66,4 +66,5 @@ Passing checks include:
 
 1. Continue the OFF-mode soak to 50 completed rounds and preserve the report as the activation baseline.
 2. Perform human visual camera review and either accept or revise the uncommitted camera work.
-3. Only after both gates, begin SHADOW contact/progress observations; do not enable tactical orders until SHADOW evidence is reviewed.
+3. SHADOW plumbing has been exercised, but the first sample had no LOS-positive or firing-positive observations. Deterministic any-visible LOS selection and aggregate cost/contact metrics are now implemented; capture a richer semantic SHADOW sample next.
+4. Do not enable TASKS or TACTICAL orders until SHADOW evidence and the 50-round OFF baseline are reviewed.
