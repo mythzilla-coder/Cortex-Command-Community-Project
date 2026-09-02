@@ -22,9 +22,11 @@ python tools/spectator_soak_report.py path\to\console.log
 
 It reports completed/started rounds, incomplete final rounds, winner counts, duration statistics, and watchdog events.
 
-Current verification limitation: this checkout has no standalone Lua executable on PATH, so the pure-Lua tests are present but could not be executed in this environment. Run them with the project/runtime Lua interpreter when available:
+The checkout has no standalone Lua executable on PATH. The pure-Lua tests have nevertheless been executed with the cached Fengari Lua CLI used for verification in this environment:
 
 ```text
 lua tests/spectator_camera_event_test.lua
 lua tests/spectator_telemetry_test.lua
 ```
+
+The current live-runtime gap is separate: recent game logs reached `BATTLE` but contained no `SPECTATOR_EVENT` lines, so the soak report cannot yet be trusted for live runs until module loading/output transport is diagnosed.

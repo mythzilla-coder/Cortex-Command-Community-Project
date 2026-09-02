@@ -6,6 +6,10 @@ Spectator Arena is an autonomous AI-vs-AI Cortex Command activity intended to be
 
 The current content is deliberately conservative: two autonomous teams of eight fight in real time on `Ketanot Hills`.
 
+## Current local state
+
+The authoritative local checkout is on branch `spectator-random-factions` at `46755ce40` (`Fix spectator telemetry sink emission`). The V11/V11.1 AI baseline is committed and accepted for now. The event-aware camera remains uncommitted and pending human visual review. See `docs/CORTEX_COMMAND_KNOWLEDGE_BRIDGE.md` for the cross-environment source-of-truth and continuation protocol.
+
 ## Startup flow
 
 The debug-release executable applies the dedicated startup selection in `Source/Main.cpp`:
@@ -54,9 +58,13 @@ The director holds a focus for at least `1500` ms and only switches when a new s
 
 The centralized controls are `CameraEvaluationIntervalMS`, `CameraMinimumHoldMS`, and `CameraSwitchThreshold`. Fallback priority is strongest opposing interaction, nearest opposing pair, any living combatant, then the scene center. Existing Cortex Command observation-target smoothing remains responsible for the final camera movement.
 
-### Camera behavior review / next revision
+### Event-aware hybrid camera — review build
 
-Live review found that the cluster midpoint can sometimes be less useful than the earlier reliable soldier-centered view. The next revision should therefore use a hybrid policy: follow a valid living soldier by default, periodically evaluate combat points of interest, switch to a clearly stronger point of interest only occasionally, hold it briefly, and return to a valid soldier when the point of interest is no longer useful or its anchor disappears. This preserves the dependable soldier basis while still showing meaningful action. No code change is included yet; see `docs/HANDOFF_CAMERA_HYBRID_REVIEW.md` for the implementation handoff.
+The current uncommitted review build uses the explicit priority `LAST_SURVIVOR > CAMERA_EVENT > CAMERA_SOLDIER > CAMERA_POI > CAMERA_CENTER`. A real living soldier remains the normal anchor. The earlier combat-cluster midpoint remains available only as an occasional secondary POI; Cortex Command's observation-target scrolling supplies transition smoothing.
+
+The engine exposes no direct killer or instigator field to this activity. The implementation therefore uses conservative inference from supported Lua APIs: `AHuman.EquippedItem`, `HDFirearm.FiredFrame`, `HDFirearm.MuzzlePos`, `Actor:GetAimAngle(true)`, `Actor:IsDead()`, `Actor.Health`, `MOSRotating.WoundCount`, and `MovableObject.UniqueID`. A camera event is eligible only when the followed soldier fired within `400` ms, exactly one opposing actor has an observed live-to-dead transition (or is removed after death was already observed), the victim is `180–1200` pixels away, and the victim lies within an aim dot threshold of `0.85` (about ±32 degrees). Unexplained disappearance, ambiguous deaths, stale fire, nearby deaths, out-of-cone deaths, and already-handled victim IDs are rejected.
+
+An accepted event holds the victim's last meaningful position for `2000` ms and starts a `4000` ms event cooldown. The prior soldier reference is retained and reused if still alive; otherwise a new living soldier is selected. Handled victim IDs, tracked actor state, shot context, event state, and cooldown state are cleared between rounds. One event can therefore produce at most one response per round. This is intentionally a high-miss/low-false-positive approximation: kills removed before a death state can be observed may receive no cut.
 
 ## Winner and score logic
 
@@ -74,9 +82,13 @@ The round reset removes surviving team actors without creating artificial gibs, 
 
 ## Verification and known issues
 
-The source was rebuilt as `Debug Release|x64` and a fresh process completed four normal rounds and armed a fifth. The direct-launch log confirmed `Ketanot Hills` and `Spectator Arena`; lifecycle logs confirmed battle arming, result, reset, and automatic progression. The camera implementation was exercised by the live activity, but this desktop’s window-capture path did not expose the hardware-rendered game frame for independent visual confirmation; a visual camera review remains recommended on a normal display/recording setup. The existing deterministic short-timeout watchdog run confirmed one timeout, one result, reset, and subsequent round starts.
+The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. The source was rebuilt as `Debug Release|x64` with zero build errors, and a fresh process directly loaded `Ketanot Hills`, started `Spectator Arena`, and entered `BATTLE`. Hardware-rendered frames were captured successfully and showed soldier-centered combat without an observed empty-terrain lock. The corrected build has not yet completed the required 3–5 visually reviewed rounds, and a deliberately observed off-screen attributed kill has not yet been confirmed. The milestone is therefore **review pending**, not accepted, complete, or committed.
+
+The last committed milestone remains `3d67863e7` (`Document hybrid spectator camera handoff`). The event-aware camera, its pure inference module, tests, and these documentation updates remain uncommitted for review. The existing deterministic short-timeout watchdog evidence and historical soak checkpoint remain unchanged.
 
 The runtime still emits an empty-scene-preset warning before successfully loading `Ketanot Hills`, plus repeated sound-device initialization warnings. These are known warnings and are separate from the Lua lifecycle changes. The historical checkpoint/tag `spectator-soak-2026-08-31` remains unchanged.
+
+Recent live verification also reached `BATTLE` but produced no `SPECTATOR_EVENT` records in `LogConsole.txt`; the telemetry helper passes standalone tests, but live telemetry transport/module resolution remains unresolved.
 
 ## Rollback and next milestones
 
@@ -84,7 +96,8 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 
 Next priorities are:
 
-1. hybrid soldier-follow / point-of-interest camera revision
-2. stream-facing HUD
-3. configurable teams/loadouts
-4. longer-duration soak testing
+1. finish human review and tune/accept the event-aware camera
+2. commit the accepted event-aware camera milestone
+3. stream-facing HUD
+4. configurable teams/loadouts
+5. longer-duration soak testing
