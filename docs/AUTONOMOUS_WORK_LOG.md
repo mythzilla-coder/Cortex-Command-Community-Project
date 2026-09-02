@@ -132,3 +132,25 @@ Safety boundary:
 
 Status:
 - The audit confirms enough local read-only data to implement contact memory, engagement observations, and bounded scoring without replacing `NativeHumanAI` or changing V11/V11.1 touchdown/release behavior.
+
+## 2026-09-02 — AI V2 shadow implementation phases 2–5
+
+Implemented and committed the pure shadow-layer foundations:
+
+- Contact memory with frozen direct positions, confidence updates, expiry, and engagement-lock observations.
+- Task hysteresis, bounded target reservations with stale-expiry cleanup, and one-stage-at-a-time recovery escalation.
+- Engine-independent weapon classification and destination scoring for range, cover, line of sight, threat, and meaningful-improvement filtering.
+- SHADOW-only arena observations after the existing touchdown/release gate, covering nearest opponent, LOS, firing, health, waypoint/path state, progress, and recovery stage.
+
+Verification:
+- Focused Lua controller tests — PASS under the locally restored cached Fengari runner.
+- Telemetry Lua test — PASS.
+- Python test suite — 3 tests PASS.
+- SHADOW integration source tests — 3 tests PASS.
+- `git diff --check` — PASS.
+- `RTEA.sln` Debug Release x64 build — PASS, 0 errors; existing compiler warnings remain.
+
+Evidence boundary:
+- No behavior-enabled AI decision has been activated.
+- No non-default SHADOW runtime trace has yet been used to claim contact, task, recovery, CPU/UPS, or tactical quality improvements.
+- Production remains OFF pending a deliberate SHADOW evidence capture and the required 50 completed OFF-mode baseline rounds.
