@@ -62,3 +62,13 @@ Primary local references:
 - `Data/Base.rte/Activities/SpectatorArena.lua`
 - `tests/spectator_ai_controller_test.lua`
 - `tests/spectator_ai_integration_test.py`
+
+Drive review bundle:
+
+- [Source snapshot manifest](https://drive.google.com/file/d/1Y8SULsRv7pW2IiRyw3FqtEH2g466ATZn/view)
+- [SpectatorAIController.lua](https://drive.google.com/file/d/1z-ejFEDlVaflUMfJwFr3s3XlNBHAAUse/view)
+- [SpectatorArena.lua](https://drive.google.com/file/d/1CEyZGfMjzwKhi_HZ1XPRzBXpmVmmYnCE/view)
+- [Controller tests](https://drive.google.com/file/d/19xOIqYhNJYw8VPA87DPCIMQHSMWx7tzO/view)
+- [Integration tests](https://drive.google.com/file/d/1MZtVsiG4hahyitxMeuU3QNd-zuhzLxjx/view)
+- [Telemetry test](https://drive.google.com/file/d/1O7URrZAL5PkVdk207Tlctx23UWg1iXTu/view)
+- [Soak report parser](https://drive.google.com/file/d/15ki8-2vuP5nnYj5ZPqVn1awVeHr10Tqe/view)
