@@ -50,13 +50,13 @@
 - Modify: `Data/Base.rte/Activities/SpectatorTelemetry.lua` if runtime transport requires a targeted fix
 - Test: `tests/spectator_activity_integration_test.lua` or a deterministic source/trace check if engine construction cannot be isolated
 
-- [ ] Add controller construction and round-generation initialization without changing actor AIMode or waypoint calls.
-- [ ] Register actors when spawned and release them only from the existing accepted touchdown-release path.
-- [ ] Sample positions at a low, staggered cadence after release.
-- [ ] Keep `AI_V2_MODE = OFF` as the explicit default and emit configuration/version metadata through the existing telemetry path.
-- [ ] Add tests/checks proving OFF mode makes no tactical actor mutations.
-- [ ] Run Lua tests, Python tests, `git diff --check`, and the Debug Release x64 build.
-- [ ] Commit: `Integrate spectator AI V2 controller in off mode`.
+- [x] Add controller construction and round-generation initialization without changing actor AIMode or waypoint calls.
+- [x] Register actors when spawned and release them only from the existing accepted touchdown-release path.
+- [x] Sample positions at a low, staggered cadence after release.
+- [x] Keep `AI_V2_MODE = OFF` as the explicit default and emit configuration/version metadata through the existing telemetry path.
+- [x] Add tests/checks proving OFF mode makes no tactical actor mutations.
+- [x] Run Lua tests, Python tests, `git diff --check`, and the Debug Release x64 build.
+- [x] Commit: `Integrate spectator AI V2 controller in off mode`.
 
 ### Task 3: Shadow contact and progress observations
 
@@ -88,4 +88,3 @@
 - [ ] Record distributions and runtime cost without enabling behavior changes.
 - [ ] Review SHADOW proposals for plausible contacts, low churn, no omniscient tracking, bounded CPU cost, and clean round resets.
 - [ ] Do not enable `TASKS` until the baseline and SHADOW acceptance evidence is recorded.
-

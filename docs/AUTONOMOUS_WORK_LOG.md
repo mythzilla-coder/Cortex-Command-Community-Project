@@ -43,6 +43,25 @@ Next:
 - Integrate observation only after `AI_TOUCHDOWN_ALL_RELEASED`, retaining OFF as the default.
 - Resolve live `SPECTATOR_EVENT` transport before baseline soak claims.
 
+## 2026-09-02 — AI V2 OFF-mode activity integration
+
+Changed:
+- Wired `SpectatorAIController` into `SpectatorArena.lua` without changing V11/V11.1 actor behavior.
+- Added round generation reset, spawn registration, accepted touchdown-release recording, and 500 ms released-actor position sampling.
+- Added `AI_V2_CONFIG version=2 mode=OFF` through the existing telemetry path.
+- Added a source-level integration test proving the release boundary and no tactical actor mutations in the instrumentation function.
+
+Verification:
+- Focused controller and integration Lua/Python checks — PASS.
+- Full Python suite — 2 tests PASS.
+- Debug Release x64 MSBuild — PASS (existing compiler/linker warnings only).
+- `git diff --check` — PASS.
+- Fresh executable smoke launch stayed alive for the smoke window; legacy `LogConsole.txt` did not refresh, so no new round-level runtime claim is made.
+
+Preservation:
+- `AI_V2_MODE` remains `OFF`; no tasks, tactical orders, contact sharing, or NativeHumanAI replacement was enabled.
+- Uncommitted camera-review files remain untouched and uncommitted.
+
 ## 2026-09-02 — Deterministic soak parser
 
 Changed:

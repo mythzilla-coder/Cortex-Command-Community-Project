@@ -98,7 +98,6 @@ function SpectatorArena:SpawnRound()
     self.AISpawnSettled = false;
     self.AIReleasedActors = {};
     self.AIDistributedTargetTimer:Reset();
-
     -- Actor UniqueIDs and routes belong only to this round.
     self.AIPursuitTargets = {};
     self.AIPursuitProgress = {};
@@ -111,6 +110,7 @@ function SpectatorArena:SpawnRound()
     self:ResetCameraDirector();
 
     self.RoundNumber = self.RoundNumber + 1;
+    self.AIController:BeginRound(self.RoundNumber, nil);
 
     self.FactionPool = {
         "Coalition.rte",
@@ -171,6 +171,7 @@ function SpectatorArena:SpawnRound()
             actor.AIMode = Actor.AIMODE_SENTRY;
 
             MovableMan:AddActor(actor);
+            self.AIController:RegisterActor(actor.UniqueID, self.Team1, i);
         end
     end
 
@@ -198,6 +199,7 @@ function SpectatorArena:SpawnRound()
             actor.AIMode = Actor.AIMODE_SENTRY;
 
             MovableMan:AddActor(actor);
+            self.AIController:RegisterActor(actor.UniqueID, self.Team2, i);
         end
     end
 
@@ -368,6 +370,10 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                 if touchedGround then
                     arena.AIReleasedActors[actor.UniqueID] =
                         true;
+                    arena.AIController:ReleaseActor(
+                        actor.UniqueID,
+                        arena.RoundElapsedTimer.ElapsedSimTimeMS
+                    );
 
                     newlyReleased = true;
 
@@ -565,6 +571,15 @@ function SpectatorArena:StartActivity()
     print("SpectatorArena: autonomous AI vs AI spectator");
     self.Telemetry = require("Activities/SpectatorTelemetry");
     self.Telemetry.Emit("ACTIVITY_START", {});
+    self.AI_V2_MODE = "OFF";
+    self.AIController = require("Activities/SpectatorAIController").Create({
+        mode = self.AI_V2_MODE,
+        positionHistoryLimit = 4
+    });
+    self.Telemetry.Emit("AI_V2_CONFIG", {
+        version = "2",
+        mode = self.AI_V2_MODE
+    });
 
     self.Team1 = Activity.TEAM_1;
     self.Team2 = Activity.TEAM_2;
@@ -610,6 +625,8 @@ function SpectatorArena:StartActivity()
     self.AISpawnSettled = false;
     self.AITouchdownGateActive = true;
     self.AIReleasedActors = {};
+    self.AIInstrumentationTimer = Timer();
+    self.AIInstrumentationIntervalMS = 500;
 
     -- V10 distributed moving-target experiment.
     self.AIDistributedTargetTimer = Timer();
@@ -1073,6 +1090,40 @@ function SpectatorArena:UpdateCombatPressure(
     self.AICombatPressureTimer:Reset();
 end
 
+function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)
+    if not self.AIController
+        or not self.AISpawnSettled
+        or not self.AIInstrumentationTimer:IsPastSimMS(self.AIInstrumentationIntervalMS) then
+        return;
+    end
+
+    self.AIInstrumentationTimer:Reset();
+
+    local function sampleActors(actors)
+        for _, actor in ipairs(actors) do
+            if MovableMan:IsActor(actor)
+                and not actor:IsDead()
+                and self.AIReleasedActors[actor.UniqueID]
+            then
+                local waypoint = actor:GetLastAIWaypoint();
+                self.AIController:RecordPosition(
+                    actor.UniqueID,
+                    self.RoundElapsedTimer.ElapsedSimTimeMS,
+                    actor.Pos.X,
+                    actor.Pos.Y,
+                    waypoint.X,
+                    waypoint.Y,
+                    false,
+                    actor.IsWaitingOnNewMovePath
+                );
+            end
+        end
+    end
+
+    sampleActors(team1Actors);
+    sampleActors(team2Actors);
+end
+
 function SpectatorArena:UpdateActivity()
     local team1Alive = 0;
     local team2Alive = 0;
@@ -1097,6 +1148,7 @@ function SpectatorArena:UpdateActivity()
         team1Actors,
         team2Actors
     );
+    self:UpdateAIInstrumentation(team1Actors, team2Actors);
 
     if self.RoundOver then
         FrameMan:SetScreenText(

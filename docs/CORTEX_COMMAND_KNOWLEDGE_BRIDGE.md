@@ -19,7 +19,7 @@ Before implementation, inspect `git status`, the current branch/HEAD, recent his
 `C:\Users\mythz\Documents\Cortex-Command-Community-Project`
 
 Current local branch: `spectator-random-factions`  
-Current local HEAD: `46755ce40 Fix spectator telemetry sink emission`
+Current local HEAD: `d5c9b787c Integrate spectator AI V2 controller in off mode`
 
 Important local milestones:
 
@@ -75,9 +75,9 @@ Relevant files:
 
 ## AI V2 status
 
-The AI V2 pre-coding blueprint is now being executed incrementally. The first behavior-neutral foundation is present in `Data/Base.rte/Activities/SpectatorAIController.lua` with focused coverage in `tests/spectator_ai_controller_test.lua`. It is not integrated into the activity yet, defaults to `OFF`, and does not mutate actors, AIMode, waypoints, controllers, or combat behavior.
+The first behavior-neutral foundation is present in `Data/Base.rte/Activities/SpectatorAIController.lua`, and `SpectatorArena.lua` now wires it in explicit `OFF` mode. Actors are registered at spawn, released only at the existing accepted touchdown boundary, and sampled at a low cadence after `AI_TOUCHDOWN_ALL_RELEASED`; the controller does not mutate actors, AIMode, waypoints, controllers, or combat behavior. `AI_V2_CONFIG` is emitted through the existing telemetry helper.
 
-The next safe increment is OFF-mode activity observation after the existing `AI_TOUCHDOWN_ALL_RELEASED` handoff. Do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW evidence exists.
+This is instrumentation only. Do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW evidence exists, and resolve the live `SPECTATOR_EVENT` output gap before treating runtime reports as authoritative.
 
 ## Work protocol
 
