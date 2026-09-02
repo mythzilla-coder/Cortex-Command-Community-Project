@@ -110,7 +110,13 @@ function SpectatorAIController.Create(config)
             LOSChecks = 0,
             LOSPositive = 0,
             FireEvents = 0,
-            DamageEvents = 0
+            DamageEvents = 0,
+            VisibleOpponents = 0,
+            VisibleOpponentChecks = 0,
+            ActorSkips = 0,
+            ContactAcquisitions = 0,
+            ContactLosses = 0,
+            ShadowObservationTimeMS = 0
         }
     }
 
@@ -132,7 +138,13 @@ function SpectatorAIController:BeginRound(roundID, seed)
         LOSChecks = 0,
         LOSPositive = 0,
         FireEvents = 0,
-        DamageEvents = 0
+        DamageEvents = 0,
+        VisibleOpponents = 0,
+        VisibleOpponentChecks = 0,
+        ActorSkips = 0,
+        ContactAcquisitions = 0,
+        ContactLosses = 0,
+        ShadowObservationTimeMS = 0
     }
 end
 
@@ -248,7 +260,7 @@ function SpectatorAIController:RecordDamage(actorID, timestampMS, amount)
     return true
 end
 
-function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, hasLOS, firing, health, previousHealth)
+function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, hasLOS, firing, health, previousHealth, visibleEnemyID)
     local actor = self.ActorState[actorID]
     if not actor then
         return false
@@ -258,6 +270,15 @@ function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, has
     self.Metrics.LOSChecks = self.Metrics.LOSChecks + 1
     if hasLOS then
         self.Metrics.LOSPositive = self.Metrics.LOSPositive + 1
+    end
+
+    if visibleEnemyID ~= actor.LastVisibleEnemyID then
+        if visibleEnemyID ~= nil then
+            self.Metrics.ContactAcquisitions = self.Metrics.ContactAcquisitions + 1
+        elseif actor.LastVisibleEnemyID ~= nil then
+            self.Metrics.ContactLosses = self.Metrics.ContactLosses + 1
+        end
+        actor.LastVisibleEnemyID = visibleEnemyID
     end
 
     if firing then
@@ -390,6 +411,16 @@ function SpectatorAIController:GetRecoveryStage(actorID)
     return actor and (actor.RecoveryStage or 0) or 0
 end
 
+function SpectatorAIController:RecordShadowBatchMetrics(fields)
+    fields = fields or {}
+    self.Metrics.VisibleOpponents = self.Metrics.VisibleOpponents + (fields.visibleOpponents or 0)
+    self.Metrics.VisibleOpponentChecks = self.Metrics.VisibleOpponentChecks + (fields.visibleOpponentChecks or 0)
+    self.Metrics.ActorSkips = self.Metrics.ActorSkips + (fields.actorSkips or 0)
+    self.Metrics.ContactAcquisitions = self.Metrics.ContactAcquisitions + (fields.contactAcquisitions or 0)
+    self.Metrics.ContactLosses = self.Metrics.ContactLosses + (fields.contactLosses or 0)
+    self.Metrics.ShadowObservationTimeMS = self.Metrics.ShadowObservationTimeMS + (fields.elapsedMS or 0)
+end
+
 function SpectatorAIController:Snapshot()
     local registeredActors = 0
     local releasedActors = 0
@@ -414,7 +445,13 @@ function SpectatorAIController:Snapshot()
         LOSChecks = self.Metrics.LOSChecks,
         LOSPositive = self.Metrics.LOSPositive,
         FireEvents = self.Metrics.FireEvents,
-        DamageEvents = self.Metrics.DamageEvents
+        DamageEvents = self.Metrics.DamageEvents,
+        VisibleOpponents = self.Metrics.VisibleOpponents,
+        VisibleOpponentChecks = self.Metrics.VisibleOpponentChecks,
+        ActorSkips = self.Metrics.ActorSkips,
+        ContactAcquisitions = self.Metrics.ContactAcquisitions,
+        ContactLosses = self.Metrics.ContactLosses,
+        ShadowObservationTimeMS = self.Metrics.ShadowObservationTimeMS
     }
 end
 

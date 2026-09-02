@@ -1112,6 +1112,10 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
     end
 
     local timestampMS = self.RoundElapsedTimer.ElapsedSimTimeMS;
+    local shadowTimer = Timer();
+    local visibleOpponentTotal = 0;
+    local visibleOpponentChecks = 0;
+    local actorSkips = 0;
 
     local function observeTeam(actors, enemies)
         for _, actor in ipairs(actors) do
@@ -1119,8 +1123,44 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                 and not actor:IsDead()
                 and self.AIReleasedActors[actor.UniqueID]
             then
-                local enemy, distanceSquared =
+                local nearestEnemy, nearestDistanceSquared =
                     self:FindNearestDirectEnemy(actor, enemies);
+                local opponents = {};
+                local visibilityByID = {};
+
+                for _, opponent in ipairs(enemies) do
+                    if MovableMan:IsActor(opponent) and not opponent:IsDead() then
+                        local ray = SceneMan:ShortestDistance(
+                            actor.Pos,
+                            opponent.Pos,
+                            SceneMan.SceneWrapsX
+                        );
+                        local distanceSquared = ray.X * ray.X + ray.Y * ray.Y;
+                        local obstacleDistance = SceneMan:CastObstacleRay(
+                            actor.Pos,
+                            ray,
+                            Vector(),
+                            Vector(),
+                            actor.ID,
+                            actor.IgnoresWhichTeam,
+                            rte.grassID,
+                            3
+                        );
+                        opponents[#opponents + 1] = {
+                            UniqueID = opponent.UniqueID,
+                            distanceSquared = distanceSquared,
+                            actor = opponent
+                        };
+                        visibilityByID[opponent.UniqueID] = obstacleDistance < 0;
+                        visibleOpponentChecks = visibleOpponentChecks + 1;
+                    end
+                end
+
+                local visibleEnemy, visibleDistanceSquared, visibleOpponentCount =
+                    self.AIController:SelectVisibleOpponent(opponents, visibilityByID);
+                visibleOpponentTotal = visibleOpponentTotal + visibleOpponentCount;
+                local enemy = visibleEnemy and visibleEnemy.actor or nil;
+                local distanceSquared = visibleDistanceSquared or nearestDistanceSquared;
                 local waypoint = actor:GetLastAIWaypoint();
                 local item = actor.EquippedItem;
                 local firing = false;
@@ -1129,36 +1169,17 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     firing = ToHDFirearm(item).FiredFrame == true;
                 end
 
-                local hasLOS = false;
+                local hasLOS = enemy ~= nil;
                 if enemy then
-                    local ray = SceneMan:ShortestDistance(
-                        actor.Pos,
-                        enemy.Pos,
-                        SceneMan.SceneWrapsX
+                    self.AIController:RecordContact(
+                        actor.Team,
+                        enemy.UniqueID,
+                        timestampMS,
+                        enemy.Pos.X,
+                        enemy.Pos.Y,
+                        1.0,
+                        "DIRECT"
                     );
-                    local obstacleDistance = SceneMan:CastObstacleRay(
-                        actor.Pos,
-                        ray,
-                        Vector(),
-                        Vector(),
-                        actor.ID,
-                        actor.IgnoresWhichTeam,
-                        rte.grassID,
-                        3
-                    );
-                    hasLOS = obstacleDistance < 0;
-
-                    if hasLOS then
-                        self.AIController:RecordContact(
-                            actor.Team,
-                            enemy.UniqueID,
-                            timestampMS,
-                            enemy.Pos.X,
-                            enemy.Pos.Y,
-                            1.0,
-                            "DIRECT"
-                        );
-                    end
                 end
 
                 self.AIController:RecordShadowObservation(
@@ -1167,7 +1188,8 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     hasLOS,
                     firing,
                     actor.Health,
-                    actor.PrevHealth
+                    actor.PrevHealth,
+                    enemy and enemy.UniqueID or nil
                 );
                 local firedRecently = self.AIController:FiredRecently(
                     actor.UniqueID,
@@ -1203,25 +1225,36 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     round = self.RoundNumber,
                     actor = actor.UniqueID,
                     team = actor.Team,
-                    enemy = enemy and enemy.UniqueID or nil,
+                    enemy = nearestEnemy and nearestEnemy.UniqueID or nil,
+                    nearestVisibleEnemy = enemy and enemy.UniqueID or nil,
                     distance = distanceSquared and math.sqrt(distanceSquared) or nil,
                     health = actor.Health,
                     prevHealth = actor.PrevHealth,
                     firing = firing,
                     firedRecently = firedRecently,
                     hasLOS = hasLOS,
+                    visibleOpponentCount = visibleOpponentCount,
+                    visibleOpponentChecks = #opponents,
                     waypointX = waypoint.X,
                     waypointY = waypoint.Y,
                     pathSize = actor.MovePathSize,
                     pathPending = actor.IsWaitingOnNewMovePath,
                     recoveryStage = self.AIController:GetRecoveryStage(actor.UniqueID)
                 });
+            else
+                actorSkips = actorSkips + 1;
             end
         end
     end
 
     observeTeam(team1Actors, team2Actors);
     observeTeam(team2Actors, team1Actors);
+    self.AIController:RecordShadowBatchMetrics({
+        visibleOpponents = visibleOpponentTotal,
+        visibleOpponentChecks = visibleOpponentChecks,
+        actorSkips = actorSkips,
+        elapsedMS = shadowTimer.ElapsedRealTimeMS
+    });
 end
 
 function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)

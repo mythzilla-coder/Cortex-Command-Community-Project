@@ -98,15 +98,33 @@ controller:RecordProgress(101, 11002, 10)
 assertEqual(controller:GetRecoveryStage(101), 2, "continued stall escalates only one stage at a time")
 assertEqual(controller:GetRecoveryStage(101), 2, "recovery stage remains bounded between observations")
 
-controller:RecordShadowObservation(101, 12000, true, false, 90, 100)
-controller:RecordShadowObservation(101, 12500, false, true, 80, 90)
+controller:RecordShadowObservation(101, 12000, true, false, 90, 100, 202)
+controller:RecordShadowObservation(101, 12500, false, true, 80, 90, nil)
 assertEqual(controller.Metrics.ShadowObservations, 2, "shadow observations are aggregated")
 assertEqual(controller.Metrics.LOSChecks, 2, "LOS checks are aggregated")
 assertEqual(controller.Metrics.LOSPositive, 1, "positive LOS checks are aggregated")
 assertEqual(controller.Metrics.FireEvents, 1, "fire events are latched")
 assertEqual(controller.Metrics.DamageEvents, 1, "damage events are latched")
+assertEqual(controller.Metrics.ContactAcquisitions, 1, "contact acquisition is latched")
+assertEqual(controller.Metrics.ContactLosses, 1, "contact loss is latched")
 assertTrue(controller:FiredRecently(101, 13000, 1000), "recent fire latch remains active")
 assertFalse(controller:FiredRecently(101, 13501, 1000), "recent fire latch expires")
+
+controller:RecordShadowBatchMetrics({
+    visibleOpponents = 3,
+    visibleOpponentChecks = 8,
+    actorSkips = 1,
+    contactAcquisitions = 2,
+    contactLosses = 1,
+    elapsedMS = 4.5
+})
+local metricsSnapshot = controller:Snapshot()
+assertEqual(metricsSnapshot.VisibleOpponents, 3, "visible opponents are aggregated")
+assertEqual(metricsSnapshot.VisibleOpponentChecks, 8, "visibility checks are aggregated")
+assertEqual(metricsSnapshot.ActorSkips, 1, "actor skips are aggregated")
+assertEqual(metricsSnapshot.ContactAcquisitions, 3, "contact acquisitions are aggregated")
+assertEqual(metricsSnapshot.ContactLosses, 2, "contact losses are aggregated")
+assertEqual(metricsSnapshot.ShadowObservationTimeMS, 4.5, "shadow timing is aggregated")
 
 local closeWeapon = Controller.ClassifyWeapon({ effectiveRange = 100, projectileCount = 8, spread = 0.4 })
 assertEqual(closeWeapon.Class, "CLOSE", "scatter weapon is classified for close engagement")
