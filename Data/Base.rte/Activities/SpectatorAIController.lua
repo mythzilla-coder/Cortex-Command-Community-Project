@@ -54,6 +54,25 @@ function SpectatorAIController.SelectDistinctDestination(candidates, current, mi
     return best
 end
 
+function SpectatorAIController.SelectVisibleOpponent(opponents, visibilityByID)
+    local nearestOpponent = nil
+    local nearestDistanceSquared = nil
+    local visibleOpponentCount = 0
+
+    for _, opponent in ipairs(opponents or {}) do
+        if visibilityByID and visibilityByID[opponent.UniqueID] == true then
+            visibleOpponentCount = visibleOpponentCount + 1
+            if nearestDistanceSquared == nil
+                or opponent.distanceSquared < nearestDistanceSquared then
+                nearestOpponent = opponent
+                nearestDistanceSquared = opponent.distanceSquared
+            end
+        end
+    end
+
+    return nearestOpponent, nearestDistanceSquared, visibleOpponentCount
+end
+
 local function copySample(timestampMS, x, y, waypointX, waypointY, hardEngaged, pathPending)
     return {
         timestampMS = timestampMS,

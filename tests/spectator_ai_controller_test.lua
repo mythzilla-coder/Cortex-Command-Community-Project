@@ -31,6 +31,18 @@ local controller = Controller.Create({
 })
 assertEqual(controller.Mode, "OFF", "controller defaults to OFF")
 
+local nearestVisible, nearestVisibleDistance, visibleCount =
+    Controller.SelectVisibleOpponent({
+        { UniqueID = 202, distanceSquared = 100 },
+        { UniqueID = 303, distanceSquared = 400 },
+    }, {
+        [202] = false,
+        [303] = true
+    })
+assertEqual(nearestVisible.UniqueID, 303, "blocked nearest opponent is skipped")
+assertEqual(nearestVisibleDistance, 400, "nearest visible distance is selected")
+assertEqual(visibleCount, 1, "visible opponent count is reported")
+
 controller:BeginRound(7, 1234)
 controller:RegisterActor(101, 1, 1)
 controller:RegisterActor(202, 2, 1)
