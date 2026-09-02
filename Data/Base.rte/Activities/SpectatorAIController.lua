@@ -18,6 +18,7 @@ function SpectatorAIController.Create(config)
     local controller = {
         Mode = config.mode or "OFF",
         PositionHistoryLimit = config.positionHistoryLimit or 4,
+        ContactMemoryTTLMS = config.contactMemoryTTLMS or 3000,
         RoundGeneration = 0,
         RoundID = nil,
         RoundSeed = nil,
@@ -25,7 +26,8 @@ function SpectatorAIController.Create(config)
         ContactMemory = {},
         Metrics = {
             PositionSamples = 0,
-            ContactObservations = 0
+            ContactObservations = 0,
+            EngagementObservations = 0
         }
     }
 
@@ -40,7 +42,8 @@ function SpectatorAIController:BeginRound(roundID, seed)
     self.ContactMemory = {}
     self.Metrics = {
         PositionSamples = 0,
-        ContactObservations = 0
+        ContactObservations = 0,
+        EngagementObservations = 0
     }
 end
 
@@ -120,6 +123,38 @@ function SpectatorAIController:RecordContact(team, enemyID, timestampMS, x, y, c
     return true
 end
 
+function SpectatorAIController:GetContact(team, enemyID, timestampMS)
+    local contacts = self.ContactMemory[team]
+    local contact = contacts and contacts[enemyID]
+    if not contact then
+        return nil
+    end
+
+    if timestampMS - contact.LastSeenTimeMS > self.ContactMemoryTTLMS then
+        return nil
+    end
+
+    return contact
+end
+
+function SpectatorAIController:RecordEngagement(actorID, timestampMS, signal, untilMS)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    actor.HardEngagedUntilMS = untilMS
+    actor.LastEngagementTimeMS = timestampMS
+    actor.LastEngagementSignal = signal
+    self.Metrics.EngagementObservations = self.Metrics.EngagementObservations + 1
+    return true
+end
+
+function SpectatorAIController:IsHardEngaged(actorID, timestampMS)
+    local actor = self.ActorState[actorID]
+    return actor ~= nil and actor.HardEngagedUntilMS ~= nil and timestampMS <= actor.HardEngagedUntilMS
+end
+
 function SpectatorAIController:Snapshot()
     local registeredActors = 0
     local releasedActors = 0
@@ -138,7 +173,8 @@ function SpectatorAIController:Snapshot()
         RegisteredActors = registeredActors,
         ReleasedActors = releasedActors,
         PositionSamples = self.Metrics.PositionSamples,
-        ContactObservations = self.Metrics.ContactObservations
+        ContactObservations = self.Metrics.ContactObservations,
+        EngagementObservations = self.Metrics.EngagementObservations
     }
 end
 
