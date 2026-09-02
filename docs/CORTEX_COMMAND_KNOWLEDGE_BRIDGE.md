@@ -77,7 +77,7 @@ Relevant files:
 
 The first behavior-neutral foundation is present in `Data/Base.rte/Activities/SpectatorAIController.lua`, and `SpectatorArena.lua` now wires it in explicit `OFF` mode. Actors are registered at spawn, released only at the existing accepted touchdown boundary, and sampled at a low cadence after `AI_TOUCHDOWN_ALL_RELEASED`; the controller does not mutate actors, AIMode, waypoints, controllers, or combat behavior. `AI_V2_CONFIG` is emitted through the existing telemetry helper.
 
-This is instrumentation only. Do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW evidence exists, and resolve the live `SPECTATOR_EVENT` output gap before treating runtime reports as authoritative.
+This is instrumentation only. Do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW evidence exists. Runtime telemetry capture is now functioning through the activity-scoped `SPECTATOR_EVENT_LOG.txt` snapshot path, but the 50-round OFF-mode baseline is still incomplete.
 
 ## Work protocol
 
