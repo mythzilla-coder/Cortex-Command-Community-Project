@@ -113,3 +113,22 @@ Verification:
 
 Commit:
 - `642c549f0 Add spectator soak report parser`
+
+## 2026-09-02 — Local AI and navigation API audit
+
+Verified observation-safe interfaces for the spectator AI V2 shadow layer:
+
+- Actor state: `Health`, `PrevHealth`, `MaxHealth`, `GetAimAngle`, `GetLastAIWaypoint`, `MovePathEnd`, `MovePathSize`, `IsWaitingOnNewMovePath`, `AIBaseDigStrength`, `JumpHeight`, and `DigStrength`.
+- Weapon state: held `HDFirearm` `FiredFrame` and `MuzzlePos`.
+- Damage state: `MOSRotating.WoundCount`.
+- World queries: `SceneMan:ShortestDistance`, obstacle/strength/MO ray casts, `SceneMan:GetLastRayHitPos`, and `MovableMan:GetMOsAtPosition`.
+- Navigation support: `Scene:CalculatePath` and `CalculatePathAsync` are available, but path calculation is potentially expensive and must remain bounded and cadence-limited in any future planner.
+- Timing: `SettingsMan.AIUpdateInterval` and `TimerMan.AIDeltaTimeMS` are available for cadence-aligned sampling.
+
+Safety boundary:
+
+- `ClearAIWaypoints`, `AddAISceneWaypoint`, `AddAIMOWaypoint`, `SetMovePathToUpdate`, actor setters, and controller-input methods are mutating interfaces. They remain reserved for future TASKS/TACTICAL modes and must not be called by OFF or SHADOW instrumentation.
+- No direct killer/instigator binding was identified in the inspected Lua-facing APIs. Any future contact attribution must therefore remain conservative and inference-based unless a stronger engine signal is found.
+
+Status:
+- The audit confirms enough local read-only data to implement contact memory, engagement observations, and bounded scoring without replacing `NativeHumanAI` or changing V11/V11.1 touchdown/release behavior.
