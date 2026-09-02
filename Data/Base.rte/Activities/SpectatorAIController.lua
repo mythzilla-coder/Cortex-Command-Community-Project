@@ -19,11 +19,16 @@ function SpectatorAIController.Create(config)
         Mode = config.mode or "OFF",
         PositionHistoryLimit = config.positionHistoryLimit or 4,
         ContactMemoryTTLMS = config.contactMemoryTTLMS or 3000,
+        TaskHysteresisMS = config.taskHysteresisMS or 2000,
+        ReservationTTLMS = config.reservationTTLMS or 2000,
+        ProgressStallMS = config.progressStallMS or 1000,
+        MaxRecoveryStage = config.maxRecoveryStage or 3,
         RoundGeneration = 0,
         RoundID = nil,
         RoundSeed = nil,
         ActorState = {},
         ContactMemory = {},
+        Reservations = {},
         Metrics = {
             PositionSamples = 0,
             ContactObservations = 0,
@@ -40,6 +45,7 @@ function SpectatorAIController:BeginRound(roundID, seed)
     self.RoundSeed = seed
     self.ActorState = {}
     self.ContactMemory = {}
+    self.Reservations = {}
     self.Metrics = {
         PositionSamples = 0,
         ContactObservations = 0,
@@ -153,6 +159,88 @@ end
 function SpectatorAIController:IsHardEngaged(actorID, timestampMS)
     local actor = self.ActorState[actorID]
     return actor ~= nil and actor.HardEngagedUntilMS ~= nil and timestampMS <= actor.HardEngagedUntilMS
+end
+
+function SpectatorAIController:AssignTask(actorID, task, timestampMS)
+    local actor = self.ActorState[actorID]
+    if not actor or not task then
+        return false
+    end
+
+    if actor.Task == task then
+        return true
+    end
+
+    if actor.Task ~= nil and timestampMS - actor.TaskAssignedTimeMS < self.TaskHysteresisMS then
+        return false
+    end
+
+    actor.Task = task
+    actor.TaskAssignedTimeMS = timestampMS
+    return true
+end
+
+local function pruneReservations(reservations, timestampMS)
+    local active = {}
+    for _, reservation in ipairs(reservations or {}) do
+        if reservation.ExpiresAtMS >= timestampMS then
+            active[#active + 1] = reservation
+        end
+    end
+    return active
+end
+
+function SpectatorAIController:CanReserveTarget(actorID, targetID, timestampMS, limit)
+    if not self.ActorState[actorID] or not targetID then
+        return false
+    end
+
+    local active = pruneReservations(self.Reservations[targetID], timestampMS)
+    self.Reservations[targetID] = active
+    limit = limit or 1
+    for _, reservation in ipairs(active) do
+        if reservation.ActorUniqueID == actorID then
+            return true
+        end
+    end
+    return #active < limit
+end
+
+function SpectatorAIController:ReserveTarget(actorID, targetID, timestampMS, expiresAtMS, limit)
+    if not self:CanReserveTarget(actorID, targetID, timestampMS, limit) then
+        return false
+    end
+
+    local active = self.Reservations[targetID]
+    active[#active + 1] = {
+        ActorUniqueID = actorID,
+        TargetUniqueID = targetID,
+        ReservedAtMS = timestampMS,
+        ExpiresAtMS = expiresAtMS or (timestampMS + self.ReservationTTLMS)
+    }
+    return true
+end
+
+function SpectatorAIController:RecordProgress(actorID, timestampMS, progress)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    if actor.LastProgressValue == nil or progress > actor.LastProgressValue then
+        actor.RecoveryStage = 0
+    elseif timestampMS - actor.LastProgressTimeMS >= self.ProgressStallMS then
+        actor.RecoveryStage = math.min((actor.RecoveryStage or 0) + 1, self.MaxRecoveryStage)
+    end
+
+    actor.LastProgressValue = progress
+    actor.LastProgressTimeMS = timestampMS
+    return true
+end
+
+function SpectatorAIController:GetRecoveryStage(actorID)
+    local actor = self.ActorState[actorID]
+    return actor and (actor.RecoveryStage or 0) or 0
 end
 
 function SpectatorAIController:Snapshot()

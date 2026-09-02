@@ -20,7 +20,15 @@ local function assertFalse(value, message)
     end
 end
 
-local controller = Controller.Create({ mode = "OFF", positionHistoryLimit = 2, contactMemoryTTLMS = 3000 })
+local controller = Controller.Create({
+    mode = "OFF",
+    positionHistoryLimit = 2,
+    contactMemoryTTLMS = 3000,
+    taskHysteresisMS = 2000,
+    reservationTTLMS = 2000,
+    progressStallMS = 1000,
+    maxRecoveryStage = 3
+})
 assertEqual(controller.Mode, "OFF", "controller defaults to OFF")
 
 controller:BeginRound(7, 1234)
@@ -55,6 +63,26 @@ assertEqual(snapshot.RoundID, 7, "snapshot identifies round")
 assertEqual(snapshot.RegisteredActors, 2, "snapshot counts actors")
 assertEqual(snapshot.ReleasedActors, 1, "snapshot counts released actors")
 assertEqual(snapshot.EngagementObservations, 1, "snapshot counts engagement observations")
+
+controller:AssignTask(101, "PRESSURE", 1000)
+assertEqual(controller.ActorState[101].Task, "PRESSURE", "initial task is assigned")
+assertFalse(controller:AssignTask(101, "MANEUVER", 1500), "task hysteresis rejects rapid churn")
+assertTrue(controller:AssignTask(101, "MANEUVER", 3001), "task hysteresis permits a mature switch")
+
+controller:RegisterActor(303, 1, 2)
+assertTrue(controller:ReserveTarget(101, 202, 4000, 5000, 1), "first target reservation succeeds")
+assertFalse(controller:CanReserveTarget(303, 202, 4500, 1), "reservation limit prevents a dogpile")
+assertFalse(controller:ReserveTarget(303, 202, 4500, 5000, 1), "blocked reservation is not recorded")
+assertTrue(controller:CanReserveTarget(303, 202, 7001, 1), "stale reservation expires")
+assertTrue(controller:ReserveTarget(303, 202, 7001, 5000, 1), "replacement reservation succeeds after expiry")
+
+controller:RecordProgress(101, 8000, 10)
+assertEqual(controller:GetRecoveryStage(101), 0, "fresh progress has no recovery stage")
+controller:RecordProgress(101, 9501, 10)
+assertEqual(controller:GetRecoveryStage(101), 1, "first stall escalates one recovery stage")
+controller:RecordProgress(101, 11002, 10)
+assertEqual(controller:GetRecoveryStage(101), 2, "continued stall escalates only one stage at a time")
+assertEqual(controller:GetRecoveryStage(101), 2, "recovery stage remains bounded between observations")
 
 controller:BeginRound(8, 5678)
 assertEqual(controller.ActorState[101], nil, "new round clears actor IDs")
