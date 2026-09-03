@@ -1,5 +1,180 @@
-function SpectatorArena:CreateFactionSoldier(factionName)
-    local moduleID = PresetMan:GetModuleID(factionName);
+function SpectatorArena:RecordLoadoutDiagnostic(stage, fields)
+    if not self.LoadoutDiagnosticEnabled or not self.Telemetry then
+        return
+    end
+
+    fields = fields or {};
+    fields.stage = stage;
+    self.LoadoutDiagnosticCount = self.LoadoutDiagnosticCount + 1;
+    self.Telemetry.Emit("LOADOUT_DIAGNOSTIC", fields);
+
+    if self.LoadoutDiagnosticCount >= self.LoadoutDiagnosticLimit then
+        self.LoadoutDiagnosticEnabled = false;
+    end
+end
+
+function SpectatorArena:RecordSpawnTrace(stage, team, actorIndex, success, durationMS)
+    if not self.ArenaSpawnTrace then
+        return
+    end
+    self.ArenaSpawnTraceSequence = self.ArenaSpawnTraceSequence + 1
+    if #self.ArenaSpawnTrace >= self.ArenaSpawnTraceLimit then
+        table.remove(self.ArenaSpawnTrace, 1)
+    end
+    table.insert(self.ArenaSpawnTrace, {
+        sequence = self.ArenaSpawnTraceSequence,
+        wallMS = self.ArenaSpawnWallTimer.ElapsedRealTimeMS,
+        simMS = self.RoundElapsedTimer and self.RoundElapsedTimer.ElapsedSimTimeMS or 0,
+        stage = stage,
+        team = team,
+        actorIndex = actorIndex,
+        success = success,
+        durationMS = durationMS
+    })
+end
+
+function SpectatorArena:PersistSpawnTrace(reason)
+    if self.ArenaSpawnTracePersisted or not self.Telemetry then
+        return
+    end
+    self.ArenaSpawnTracePersisted = true
+    print("SpectatorArena: SPAWN_TRACE_BEGIN reason=" .. tostring(reason))
+    for _, entry in ipairs(self.ArenaSpawnTrace) do
+        print("SpectatorArena: SPAWN_TRACE"
+            .. " sequence=" .. tostring(entry.sequence)
+            .. " wallMS=" .. tostring(entry.wallMS)
+            .. " simMS=" .. tostring(entry.simMS)
+            .. " stage=" .. tostring(entry.stage)
+            .. " team=" .. tostring(entry.team)
+            .. " actorIndex=" .. tostring(entry.actorIndex)
+            .. " success=" .. tostring(entry.success)
+            .. " durationMS=" .. tostring(entry.durationMS))
+    end
+    print("SpectatorArena: SPAWN_TRACE_END reason=" .. tostring(reason))
+    self.Telemetry.Snapshot("SPECTATOR_ARENA_SPAWN_TRACE_LOG.txt")
+end
+
+function SpectatorArena:RecordPostSpawnTrace(stage, fields)
+    if not self.A1PostSpawnTrace or self.A1PostSpawnTracePersisted then
+        return
+    end
+
+    fields = fields or {}
+    self.A1PostSpawnTraceSequence = self.A1PostSpawnTraceSequence + 1
+    if #self.A1PostSpawnTrace >= self.A1PostSpawnTraceLimit then
+        table.remove(self.A1PostSpawnTrace, 1)
+    end
+    table.insert(self.A1PostSpawnTrace, {
+        sequence = self.A1PostSpawnTraceSequence,
+        wallMS = self.A1PostSpawnWallTimer and self.A1PostSpawnWallTimer.ElapsedRealTimeMS or 0,
+        simMS = self.RoundElapsedTimer and self.RoundElapsedTimer.ElapsedSimTimeMS or 0,
+        stage = stage,
+        updateCount = self.A1UpdateCount or 0,
+        round = self.RoundNumber or 0,
+        state = self.State,
+        mode = self.AI_V2_MODE,
+        spawned = fields.spawned or self.A1SpawnedActorCount,
+        landed = fields.landed or self.A1LandedActorCount,
+        released = fields.released or self.A1ReleasedActorCount,
+        team1Alive = fields.team1Alive or self.A1Team1Alive,
+        team2Alive = fields.team2Alive or self.A1Team2Alive,
+        pendingActorIDs = fields.pendingActorIDs or self.A1PendingActorIDs,
+        pendingActorID = fields.pendingActorID or self.A1PendingActorID,
+        pendingVelY = fields.pendingVelY or self.A1PendingVelY,
+        pendingGroundDistance = fields.pendingGroundDistance or self.A1PendingGroundDistance,
+        detail = fields.detail
+    })
+end
+
+function SpectatorArena:TracePostSpawnBoundary(stage, fields, force)
+    if self.A1PostSpawnTracePersisted then
+        return
+    end
+
+    self.A1LastStage = stage
+    if force or self.A1HeartbeatUpdates[self.A1UpdateCount or 0] then
+        self:RecordPostSpawnTrace(stage, fields)
+    end
+end
+
+function SpectatorArena:PersistPostSpawnTrace(reason)
+    if self.A1PostSpawnTracePersisted or not self.Telemetry then
+        return
+    end
+
+    self:RecordPostSpawnTrace("A1_COMPLETE", { detail = reason })
+    self.A1PostSpawnTracePersisted = true
+    print("SpectatorArena: A1_TRACE_BEGIN reason=" .. tostring(reason)
+        .. " lastStage=" .. tostring(self.A1LastStage)
+        .. " updates=" .. tostring(self.A1UpdateCount)
+        .. " spawned=" .. tostring(self.A1SpawnedActorCount)
+        .. " landed=" .. tostring(self.A1LandedActorCount)
+        .. " released=" .. tostring(self.A1ReleasedActorCount)
+        .. " team1Alive=" .. tostring(self.A1Team1Alive)
+        .. " team2Alive=" .. tostring(self.A1Team2Alive)
+        .. " mode=" .. tostring(self.AI_V2_MODE))
+    for _, entry in ipairs(self.A1PostSpawnTrace) do
+        print("SpectatorArena: A1_TRACE"
+            .. " sequence=" .. tostring(entry.sequence)
+            .. " wallMS=" .. tostring(entry.wallMS)
+            .. " simMS=" .. tostring(entry.simMS)
+            .. " stage=" .. tostring(entry.stage)
+            .. " updateCount=" .. tostring(entry.updateCount)
+            .. " round=" .. tostring(entry.round)
+            .. " state=" .. tostring(entry.state)
+            .. " mode=" .. tostring(entry.mode)
+            .. " spawned=" .. tostring(entry.spawned)
+            .. " landed=" .. tostring(entry.landed)
+            .. " released=" .. tostring(entry.released)
+            .. " team1Alive=" .. tostring(entry.team1Alive)
+            .. " team2Alive=" .. tostring(entry.team2Alive)
+            .. " pendingActorIDs=" .. tostring(entry.pendingActorIDs)
+            .. " pendingActorID=" .. tostring(entry.pendingActorID)
+            .. " pendingVelY=" .. tostring(entry.pendingVelY)
+            .. " pendingGroundDistance=" .. tostring(entry.pendingGroundDistance)
+            .. " detail=" .. tostring(entry.detail))
+    end
+    print("SpectatorArena: A1_TRACE_END reason=" .. tostring(reason))
+    self.Telemetry.Snapshot("SPECTATOR_ARENA_POST_SPAWN_TRACE_LOG.txt")
+end
+
+function SpectatorArena:RecordA1ProgressMarkers()
+    if self.A1PostSpawnTracePersisted
+        or self.AI_V2_MODE ~= "SHADOW"
+        or not self.AIController
+    then
+        return
+    end
+
+    local snapshot = self.AIController:Snapshot()
+    local markers = {
+        { key = "A1FirstVisibilityObserved", stage = "FIRST_VISIBILITY_OBSERVATION",
+            value = snapshot.VisibleOpponents },
+        { key = "A1FirstContactObserved", stage = "FIRST_CONTACT_ACQUISITION",
+            value = snapshot.ContactAcquisitions },
+        { key = "A1FirstFirearmObserved", stage = "FIRST_FIREARM_DISCOVERY",
+            value = snapshot.FirearmEquippedSamples },
+        { key = "A1FirstFiredFrameObserved", stage = "FIRST_FIRED_FRAME",
+            value = snapshot.FiredFrameSamples },
+        { key = "A1FirstFireLatchObserved", stage = "FIRST_DURABLE_FIRE_LATCH",
+            value = snapshot.FireFrameCount },
+        { key = "A1FirstDamageObserved", stage = "FIRST_DAMAGE_OBSERVATION",
+            value = snapshot.DamageEvents }
+    }
+
+    for _, marker in ipairs(markers) do
+        if marker.value and marker.value > 0 and not self[marker.key] then
+            self[marker.key] = true
+            self:TracePostSpawnBoundary(marker.stage, {
+                detail = marker.value
+            }, true)
+        end
+    end
+end
+
+function SpectatorArena:CreateFactionSoldier(factionName, team, actorIndex)
+local moduleID = PresetMan:GetModuleID(factionName);
+    local tracePrefix = "T" .. tostring(team) .. "_A" .. tostring(actorIndex)
 
     local actorGroups = {
         "Actors",
@@ -15,8 +190,11 @@ function SpectatorArena:CreateFactionSoldier(factionName)
         local group =
             actorGroups[math.random(1, #actorGroups)];
 
-        local candidate =
-            RandomAHuman(group, factionName);
+        self:RecordSpawnTrace(tracePrefix .. "_CREATE_BEGIN", team, actorIndex)
+        local createStart = self.ArenaSpawnWallTimer.ElapsedRealTimeMS
+        local candidate = RandomAHuman(group, factionName)
+        self:RecordSpawnTrace(tracePrefix .. "_CREATE_RETURN", team, actorIndex, candidate ~= nil,
+            self.ArenaSpawnWallTimer.ElapsedRealTimeMS - createStart)
 
         if candidate then
             if candidate.ModuleID == moduleID then
@@ -31,8 +209,11 @@ function SpectatorArena:CreateFactionSoldier(factionName)
     -- Conservative fallback within the same faction.
     if not actor then
         for attempt = 1, 20 do
-            local candidate =
-                RandomAHuman("Actors", factionName);
+            self:RecordSpawnTrace(tracePrefix .. "_CREATE_FALLBACK_BEGIN", team, actorIndex)
+            local createStart = self.ArenaSpawnWallTimer.ElapsedRealTimeMS
+            local candidate = RandomAHuman("Actors", factionName)
+            self:RecordSpawnTrace(tracePrefix .. "_CREATE_FALLBACK_RETURN", team, actorIndex,
+                candidate ~= nil, self.ArenaSpawnWallTimer.ElapsedRealTimeMS - createStart)
 
             if candidate then
                 if candidate.ModuleID == moduleID then
@@ -65,8 +246,21 @@ function SpectatorArena:CreateFactionSoldier(factionName)
         local group =
             weaponGroups[math.random(1, #weaponGroups)];
 
-        local candidate =
-            RandomHDFirearm(group, factionName);
+        self:RecordSpawnTrace(tracePrefix .. "_WEAPON_BEGIN", team, actorIndex)
+        local weaponStart = self.ArenaSpawnWallTimer.ElapsedRealTimeMS
+        local candidate = RandomHDFirearm(group, factionName)
+        self:RecordSpawnTrace(tracePrefix .. "_WEAPON_RETURN", team, actorIndex, candidate ~= nil,
+            self.ArenaSpawnWallTimer.ElapsedRealTimeMS - weaponStart)
+
+        self:RecordLoadoutDiagnostic("WEAPON_CANDIDATE", {
+            attempt = attempt,
+            candidate = candidate and candidate.PresetName or "NONE",
+            candidateModule = candidate and candidate.ModuleID or -1,
+            expectedModule = moduleID,
+            faction = factionName,
+            group = group,
+            accepted = candidate and candidate.ModuleID == moduleID or false
+        });
 
         if candidate then
             if candidate.ModuleID == moduleID then
@@ -79,7 +273,20 @@ function SpectatorArena:CreateFactionSoldier(factionName)
     end
 
     if weapon then
-        actor:AddInventoryItem(weapon);
+        self:RecordSpawnTrace(tracePrefix .. "_INVENTORY_BEGIN", team, actorIndex)
+        local inventoryStart = self.ArenaSpawnWallTimer.ElapsedRealTimeMS
+        actor:AddInventoryItem(weapon)
+        self:RecordSpawnTrace(tracePrefix .. "_INVENTORY_RETURN", team, actorIndex, true,
+            self.ArenaSpawnWallTimer.ElapsedRealTimeMS - inventoryStart)
+        self:RecordLoadoutDiagnostic("WEAPON_HANDOFF", {
+            actor = actor.UniqueID,
+            actorModule = actor.ModuleID,
+            equipped = actor.EquippedItem and actor.EquippedItem.PresetName or "NONE",
+            faction = factionName,
+            inventory = actor.InventorySize,
+            weapon = weapon.PresetName,
+            weaponModule = weapon.ModuleID
+        });
     end
 
     return actor;
@@ -87,6 +294,9 @@ end
 
 
 function SpectatorArena:SpawnRound()
+    self.ArenaSpawnInProgress = true
+    self.ArenaSpawnComplete = false
+    self:RecordSpawnTrace("ROUND_SETUP_BEGIN")
     self:TransitionState("SPAWN_TEAMS");
     self.RoundOver = false;
     self.BattleStarted = false;
@@ -132,6 +342,7 @@ function SpectatorArena:SpawnRound()
                 math.random(1, #self.FactionPool)
             ];
     until self.Team2Faction ~= self.Team1Faction;
+    self:RecordSpawnTrace("FACTIONS_SELECTED")
 
     self.Telemetry.Emit("ROUND_START", {
         round = self.RoundNumber,
@@ -148,9 +359,12 @@ function SpectatorArena:SpawnRound()
 
 
     for i = 1, 8 do
+        self:RecordSpawnTrace("TEAM0_SPAWN_BEGIN", self.Team1, i)
         local actor =
             self:CreateFactionSoldier(
-                self.Team1Faction
+                self.Team1Faction,
+                self.Team1,
+                i
             );
 
         if actor then
@@ -170,16 +384,44 @@ function SpectatorArena:SpawnRound()
             -- offensive actors start directly in native hunt mode.
             actor.AIMode = Actor.AIMODE_SENTRY;
 
-            MovableMan:AddActor(actor);
+            self:RecordSpawnTrace("T0_A" .. tostring(i) .. "_ADD_ACTOR_BEGIN", self.Team1, i)
+            local addActorStart = self.ArenaSpawnWallTimer.ElapsedRealTimeMS
+            MovableMan:AddActor(actor)
+            self:RecordSpawnTrace("T0_A" .. tostring(i) .. "_ADD_ACTOR_RETURN", self.Team1, i,
+                MovableMan:IsActor(actor), self.ArenaSpawnWallTimer.ElapsedRealTimeMS - addActorStart)
+            local postInsertionItem = actor.EquippedItem;
+            local postInsertionBGItem = actor.EquippedBGItem;
+            self:RecordLoadoutDiagnostic("WEAPON_POST_INSERTION", {
+                actor = actor.UniqueID,
+                actorValid = MovableMan:IsActor(actor),
+                equipped = postInsertionItem and postInsertionItem.PresetName or "NONE",
+                equippedClass = postInsertionItem and postInsertionItem.ClassName or "NONE",
+                equippedIsFirearm = postInsertionItem and IsHDFirearm(postInsertionItem) or false,
+                equippedMOID = postInsertionItem and postInsertionItem.ID or -1,
+                equippedRootMOID = postInsertionItem and postInsertionItem.RootID or -1,
+                background = postInsertionBGItem and postInsertionBGItem.PresetName or "NONE",
+                backgroundClass = postInsertionBGItem and postInsertionBGItem.ClassName or "NONE",
+                inventory = actor.InventorySize,
+                team = actor.Team
+            });
+            if not self.A1PostSpawnStarted and MovableMan:IsActor(actor) then
+                self.A1SpawnedActorCount = self.A1SpawnedActorCount + 1
+            end
+            self:RecordSpawnTrace("T0_A" .. tostring(i) .. "_REGISTER_BEGIN", self.Team1, i)
             self.AIController:RegisterActor(actor.UniqueID, self.Team1, i);
+            self:RecordSpawnTrace("T0_A" .. tostring(i) .. "_REGISTER_RETURN", self.Team1, i, true)
         end
     end
+    self:RecordSpawnTrace("TEAM0_SPAWN_END", self.Team1, 8, true)
 
 
     for i = 1, 8 do
+        self:RecordSpawnTrace("TEAM1_SPAWN_BEGIN", self.Team2, i)
         local actor =
             self:CreateFactionSoldier(
-                self.Team2Faction
+                self.Team2Faction,
+                self.Team2,
+                i
             );
 
         if actor then
@@ -198,9 +440,47 @@ function SpectatorArena:SpawnRound()
             -- offensive actors start directly in native hunt mode.
             actor.AIMode = Actor.AIMODE_SENTRY;
 
-            MovableMan:AddActor(actor);
+            self:RecordSpawnTrace("T1_A" .. tostring(i) .. "_ADD_ACTOR_BEGIN", self.Team2, i)
+            local addActorStart = self.ArenaSpawnWallTimer.ElapsedRealTimeMS
+            MovableMan:AddActor(actor)
+            self:RecordSpawnTrace("T1_A" .. tostring(i) .. "_ADD_ACTOR_RETURN", self.Team2, i,
+                MovableMan:IsActor(actor), self.ArenaSpawnWallTimer.ElapsedRealTimeMS - addActorStart)
+            local postInsertionItem = actor.EquippedItem;
+            local postInsertionBGItem = actor.EquippedBGItem;
+            self:RecordLoadoutDiagnostic("WEAPON_POST_INSERTION", {
+                actor = actor.UniqueID,
+                actorValid = MovableMan:IsActor(actor),
+                equipped = postInsertionItem and postInsertionItem.PresetName or "NONE",
+                equippedClass = postInsertionItem and postInsertionItem.ClassName or "NONE",
+                equippedIsFirearm = postInsertionItem and IsHDFirearm(postInsertionItem) or false,
+                equippedMOID = postInsertionItem and postInsertionItem.ID or -1,
+                equippedRootMOID = postInsertionItem and postInsertionItem.RootID or -1,
+                background = postInsertionBGItem and postInsertionBGItem.PresetName or "NONE",
+                backgroundClass = postInsertionBGItem and postInsertionBGItem.ClassName or "NONE",
+                inventory = actor.InventorySize,
+                team = actor.Team
+            });
+            if not self.A1PostSpawnStarted and MovableMan:IsActor(actor) then
+                self.A1SpawnedActorCount = self.A1SpawnedActorCount + 1
+            end
+            self:RecordSpawnTrace("T1_A" .. tostring(i) .. "_REGISTER_BEGIN", self.Team2, i)
             self.AIController:RegisterActor(actor.UniqueID, self.Team2, i);
+            self:RecordSpawnTrace("T1_A" .. tostring(i) .. "_REGISTER_RETURN", self.Team2, i, true)
         end
+    end
+    self:RecordSpawnTrace("TEAM1_SPAWN_END", self.Team2, 8, true)
+    self:RecordSpawnTrace("ROUND_SPAWN_COMPLETE", nil, nil, true)
+    self.ArenaSpawnComplete = true
+    self.ArenaSpawnInProgress = false
+    self:PersistSpawnTrace("ROUND_SPAWN_COMPLETE")
+    if not self.A1PostSpawnStarted then
+        self.A1PostSpawnStarted = true
+        self.A1PostSpawnWallTimer:Reset()
+        self:RecordPostSpawnTrace("ROUND_SPAWN_COMPLETE", {
+            spawned = self.A1SpawnedActorCount,
+            landed = 0,
+            released = 0
+        })
     end
 
 
@@ -328,6 +608,10 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
         return;
     end
 
+    self.A1PendingActorID = nil;
+    self.A1PendingVelY = nil;
+    self.A1PendingGroundDistance = nil;
+
     local function releaseLandedActors(
         arena,
         actors,
@@ -368,6 +652,7 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                     and math.abs(actor.Vel.Y) <= 3;
 
                 if touchedGround then
+                    arena.A1LandedActors[actor.UniqueID] = true;
                     arena.AIReleasedActors[actor.UniqueID] =
                         true;
                     arena.AIController:ReleaseActor(
@@ -386,6 +671,11 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                         .. tostring(groundDistance)
                     );
                 else
+                    if not arena.A1PendingActorID then
+                        arena.A1PendingActorID = actor.UniqueID;
+                        arena.A1PendingVelY = actor.Vel.Y;
+                        arena.A1PendingGroundDistance = groundDistance;
+                    end
                     -- Absolutely no pursuit before first touchdown.
                     actor:ClearAIWaypoints();
                     actor.AIMode = Actor.AIMODE_SENTRY;
@@ -438,7 +728,9 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
     );
 
     local livingActorCount = 0;
+    local landedActorCount = 0;
     local releasedActorCount = 0;
+    local pendingActorIDs = {};
 
     local function countTeam(arena, actors)
         for _, actor in ipairs(actors) do
@@ -451,6 +743,13 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
                 if arena.AIReleasedActors[actor.UniqueID] then
                     releasedActorCount =
                         releasedActorCount + 1;
+                else
+                    table.insert(pendingActorIDs, tostring(actor.UniqueID));
+                end
+
+                if arena.A1LandedActors[actor.UniqueID] then
+                    landedActorCount =
+                        landedActorCount + 1;
                 end
             end
         end
@@ -458,6 +757,12 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
 
     countTeam(self, team1Actors);
     countTeam(self, team2Actors);
+    self.A1SpawnedActorCount = livingActorCount;
+    self.A1LandedActorCount = landedActorCount;
+    self.A1ReleasedActorCount = releasedActorCount;
+    self.A1PendingActorIDs = #pendingActorIDs > 0
+        and table.concat(pendingActorIDs, ",")
+        or "NONE";
 
     if livingActorCount > 0
         and releasedActorCount == livingActorCount
@@ -470,6 +775,10 @@ function SpectatorArena:UpdateSpawnSettle(team1Actors, team2Actors)
             .. " living="
             .. tostring(livingActorCount)
         );
+        if not self.A1AllActorsReleasedObserved then
+            self.A1AllActorsReleasedObserved = true;
+            self:TracePostSpawnBoundary("ALL_ACTORS_RELEASED", nil, true)
+        end
     end
 end
 
@@ -533,6 +842,12 @@ function SpectatorArena:FinishRound(winner)
         team1Score = self.Team1Score,
         team2Score = self.Team2Score
     });
+    self:TracePostSpawnBoundary("ROUND_RESULT", {
+        team1Alive = self.A1Team1Alive,
+        team2Alive = self.A1Team2Alive,
+        detail = self.RoundResultText
+    }, true)
+    self:PersistPostSpawnTrace("ROUND_RESULT")
     if self.AI_V2_MODE == "SHADOW" then
         local aiSnapshot = self.AIController:Snapshot();
         self.Telemetry.Emit("AI_SHADOW_ROUND_SUMMARY", {
@@ -548,8 +863,45 @@ function SpectatorArena:FinishRound(winner)
             actorSkips = aiSnapshot.ActorSkips,
             contactAcquisitions = aiSnapshot.ContactAcquisitions,
             contactLosses = aiSnapshot.ContactLosses,
-            shadowObservationTimeMS = aiSnapshot.ShadowObservationTimeMS
+            shadowObservationTimeMS = aiSnapshot.ShadowObservationTimeMS,
+            fireSensorSamples = aiSnapshot.FireSensorSamples,
+            firearmEquippedSamples = aiSnapshot.FirearmEquippedSamples,
+            firearmMissingSamples = aiSnapshot.FirearmMissingSamples,
+            firedFrameSamples = aiSnapshot.FiredFrameSamples,
+            firedFrameTransitions = aiSnapshot.FiredFrameTransitions,
+            roundsFiredSamples = aiSnapshot.RoundsFiredSamples,
+            roundsFiredTotal = aiSnapshot.RoundsFiredTotal,
+            alarmEventSnapshots = aiSnapshot.AlarmEventSnapshots,
+            alarmEventsObserved = aiSnapshot.AlarmEventsObserved,
+            fireFrameCount = aiSnapshot.FireFrameCount,
+            roundsDischargedObserved = aiSnapshot.RoundsDischargedObserved
         });
+        for _, state in ipairs(self.AIController:GetFireSensorStates()) do
+            self.Telemetry.Emit("AI_SHADOW_FIRE_SENSOR_SUMMARY", {
+                round = self.RoundNumber,
+                actor = state.ActorID,
+                team = state.Team,
+                firearmFound = state.FirearmMOID ~= nil,
+                firearmMOID = state.FirearmMOID,
+                firearmRootMOID = state.FirearmRootMOID,
+                firearmSlot = state.FirearmSlot,
+                equippedItemClass = state.EquippedItemClass,
+                equippedBGItemClass = state.EquippedBGItemClass,
+                inventorySize = state.InventorySize,
+                inventoryFirearmCount = state.InventoryFirearmCount,
+                sampleCount = state.SampleCount,
+                firstSampleTimeMS = state.FirstSampleTimeMS,
+                lastSampleTimeMS = state.LastSampleTimeMS,
+                firedFrameTransitions = state.FiredFrameTransitions,
+                roundsFiredSamples = state.RoundsFiredSamples,
+                lastFiredFrame = state.LastFiredFrame,
+                lastRoundsFired = state.LastRoundsFired,
+                lastFireTimeMS = state.LastFireTimeMS,
+                fireEventCount = state.FireEventCount,
+                fireFrameCount = state.FireFrameCount,
+                roundsDischargedObserved = state.RoundsDischargedObserved
+            });
+        end
     end
     self.Telemetry.Snapshot();
 end
@@ -592,6 +944,10 @@ function SpectatorArena:StartActivity()
     self.Telemetry.ConfigureRuntime("SPECTATOR_EVENT_LOG.txt");
     self.Telemetry.Emit("ACTIVITY_START", {});
     self.AI_V2_MODE = "OFF";
+    self.LoadoutDiagnosticEnabled = true;
+    self.LoadoutDiagnosticCount = 0;
+    self.LoadoutDiagnosticLimit = 64;
+    self.LoadoutDiagnosticSnapshotFactions = {};
     self.AIController = require("Activities/SpectatorAIController").Create({
         mode = self.AI_V2_MODE,
         positionHistoryLimit = 4
@@ -619,6 +975,50 @@ function SpectatorArena:StartActivity()
     self.RoundEndTimer = Timer();
     self.RoundTimer = Timer();
     self.RoundElapsedTimer = Timer();
+    self.ArenaSpawnWallTimer = Timer();
+    self.ArenaSpawnTrace = {};
+    self.ArenaSpawnTraceSequence = 0;
+    self.ArenaSpawnTraceLimit = 256;
+    self.ArenaSpawnTracePersisted = false;
+    self.ArenaSpawnTraceStartupTimeoutMS = 15000;
+    self.ArenaSpawnInProgress = false;
+    self.ArenaSpawnComplete = false;
+    self.A1PostSpawnWallTimer = Timer();
+    self.A1PostSpawnTrace = {};
+    self.A1PostSpawnTraceSequence = 0;
+    self.A1PostSpawnTraceLimit = 256;
+    self.A1PostSpawnTracePersisted = false;
+    self.A1PostSpawnStarted = false;
+    self.A1PostSpawnTimeoutMS = 20000;
+    self.A1UpdateCount = 0;
+    self.A1HeartbeatUpdates = {
+        [1] = true,
+        [2] = true,
+        [10] = true,
+        [60] = true,
+        [300] = true,
+        [600] = true,
+        [1200] = true
+    };
+    self.A1LastStage = "NOT_STARTED";
+    self.A1LandedActors = {};
+    self.A1SpawnedActorCount = 0;
+    self.A1LandedActorCount = 0;
+    self.A1ReleasedActorCount = 0;
+    self.A1Team1Alive = 0;
+    self.A1Team2Alive = 0;
+    self.A1PendingActorIDs = "NONE";
+    self.A1PendingActorID = nil;
+    self.A1PendingVelY = nil;
+    self.A1PendingGroundDistance = nil;
+    self.A1AllActorsReleasedObserved = false;
+    self.A1FirstVisibilityObserved = false;
+    self.A1FirstContactObserved = false;
+    self.A1FirstFirearmObserved = false;
+    self.A1FirstFiredFrameObserved = false;
+    self.A1FirstFireLatchObserved = false;
+    self.A1FirstDamageObserved = false;
+    self.A1FirstUpdateLoadoutObserved = {};
     -- Spectator Arena always runs at the engine-supported maximum.
     -- These reproduce the maximum values exposed by the old setup menu:
     -- Difficulty 100 / AI Skill "Unfair" 100.
@@ -1235,7 +1635,7 @@ function SpectatorArena:UpdateAIShadowObservations(team1Actors, team2Actors)
                     actor.UniqueID,
                     timestampMS,
                     hasLOS,
-                    firing,
+                    false,
                     actor.Health,
                     actor.PrevHealth,
                     enemy and enemy.UniqueID or nil
@@ -1327,6 +1727,10 @@ function SpectatorArena:UpdateAIFireDamageLatches(team1Actors, team2Actors)
     end
 
     local timestampMS = self.RoundElapsedTimer.ElapsedSimTimeMS;
+    local alarmEventCount = 0;
+    for _ in MovableMan.AlarmEvents do
+        alarmEventCount = alarmEventCount + 1;
+    end
 
     local function sampleSignals(actors)
         for _, actor in ipairs(actors) do
@@ -1335,16 +1739,56 @@ function SpectatorArena:UpdateAIFireDamageLatches(team1Actors, team2Actors)
                 and self.AIReleasedActors[actor.UniqueID]
             then
                 local item = actor.EquippedItem;
+                local backgroundItem = actor.EquippedBGItem;
                 local firing = false;
+                local firearmMOID = nil;
+                local firearmRootMOID = nil;
+                local roundsFired = 0;
+                local firearmSlot = nil;
+                local inventoryFirearmCount = 0;
                 if item and IsHDFirearm(item) then
-                    firing = ToHDFirearm(item).FiredFrame == true;
+                    local firearm = ToHDFirearm(item);
+                    firearmMOID = firearm.ID;
+                    firearmRootMOID = firearm.RootID;
+                    firing = firearm.FiredFrame == true;
+                    roundsFired = firearm.RoundsFired;
+                    firearmSlot = "FG";
+                elseif backgroundItem and IsHDFirearm(backgroundItem) then
+                    local firearm = ToHDFirearm(backgroundItem);
+                    firearmMOID = firearm.ID;
+                    firearmRootMOID = firearm.RootID;
+                    firing = firearm.FiredFrame == true;
+                    roundsFired = firearm.RoundsFired;
+                    firearmSlot = "BG";
                 end
+                for inventoryItem in actor.Inventory do
+                    if IsHDFirearm(inventoryItem) then
+                        inventoryFirearmCount = inventoryFirearmCount + 1;
+                    end
+                end
+                self.AIController:RecordFireSensorSample(
+                    actor.UniqueID,
+                    timestampMS,
+                    firearmMOID,
+                    firearmRootMOID,
+                    firing,
+                    roundsFired,
+                    alarmEventCount
+                );
+                -- The sensor path owns fire latching; retain the generic
+                -- read-only signal call for health bookkeeping only.
                 self.AIController:RecordCombatSignals(
                     actor.UniqueID,
                     timestampMS,
-                    firing,
-                    actor.Health,
-                    actor.PrevHealth
+                    false
+                );
+                self.AIController:RecordFireSensorContext(
+                    actor.UniqueID,
+                    firearmSlot,
+                    item and item.ClassName or nil,
+                    backgroundItem and backgroundItem.ClassName or nil,
+                    actor.InventorySize,
+                    inventoryFirearmCount
                 );
             end
         end
@@ -1387,16 +1831,36 @@ function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)
     sampleActors(team1Actors);
     sampleActors(team2Actors);
 
+    self:TracePostSpawnBoundary("BEFORE_SHADOW_UPDATE")
     self:UpdateAIShadowObservations(team1Actors, team2Actors);
+    self:TracePostSpawnBoundary("AFTER_SHADOW_UPDATE")
+    self:RecordA1ProgressMarkers()
 end
 
 function SpectatorArena:UpdateActivity()
+    if self.ArenaSpawnInProgress
+        and not self.ArenaSpawnTracePersisted
+        and self.ArenaSpawnWallTimer.ElapsedRealTimeMS >= self.ArenaSpawnTraceStartupTimeoutMS
+    then
+        self:RecordSpawnTrace("STARTUP_DIAGNOSTIC_TIMEOUT", nil, nil, false)
+        self:PersistSpawnTrace("STARTUP_DIAGNOSTIC_TIMEOUT")
+    end
+    if self.A1PostSpawnStarted
+        and not self.A1PostSpawnTracePersisted
+        and self.A1PostSpawnWallTimer.ElapsedRealTimeMS >= self.A1PostSpawnTimeoutMS
+    then
+        self:PersistPostSpawnTrace("DIAGNOSTIC_TIMEOUT")
+    end
+
+    self.A1UpdateCount = self.A1UpdateCount + 1;
+    self:TracePostSpawnBoundary("UPDATE_ACTIVITY_ENTER")
     local team1Alive = 0;
     local team2Alive = 0;
 
     local team1Actors = {};
     local team2Actors = {};
 
+    self:TracePostSpawnBoundary("BEFORE_ACTOR_SCAN")
     for actor in MovableMan.Actors do
         if actor.Team == self.Team1 then
             team1Alive = team1Alive + 1;
@@ -1407,15 +1871,61 @@ function SpectatorArena:UpdateActivity()
             table.insert(team2Actors, actor);
         end
     end
+    self.A1Team1Alive = team1Alive;
+    self.A1Team2Alive = team2Alive;
+    self.A1SpawnedActorCount = #team1Actors + #team2Actors;
+    self:TracePostSpawnBoundary("AFTER_ACTOR_SCAN")
+
+    local function recordFirstUpdateLoadout(arena, actors)
+        for _, actor in ipairs(actors) do
+            if not arena.A1FirstUpdateLoadoutObserved[actor.UniqueID] then
+                arena.A1FirstUpdateLoadoutObserved[actor.UniqueID] = true;
+                local equippedItem = actor.EquippedItem;
+                local backgroundItem = actor.EquippedBGItem;
+                arena:RecordLoadoutDiagnostic("WEAPON_FIRST_UPDATE", {
+                    actor = actor.UniqueID,
+                    actorValid = MovableMan:IsActor(actor),
+                    equipped = equippedItem and equippedItem.PresetName or "NONE",
+                    equippedClass = equippedItem and equippedItem.ClassName or "NONE",
+                    equippedIsFirearm = equippedItem and IsHDFirearm(equippedItem) or false,
+                    equippedMOID = equippedItem and equippedItem.ID or -1,
+                    equippedRootMOID = equippedItem and equippedItem.RootID or -1,
+                    background = backgroundItem and backgroundItem.PresetName or "NONE",
+                    backgroundClass = backgroundItem and backgroundItem.ClassName or "NONE",
+                    inventory = actor.InventorySize,
+                    team = actor.Team,
+                    updateCount = arena.A1UpdateCount
+                });
+            end
+        end
+    end
+    recordFirstUpdateLoadout(self, team1Actors);
+    recordFirstUpdateLoadout(self, team2Actors);
+
+    if self.A1HeartbeatUpdates[self.A1UpdateCount] then
+        self:RecordPostSpawnTrace("UPDATE_" .. tostring(self.A1UpdateCount), {
+            spawned = self.A1SpawnedActorCount,
+            team1Alive = team1Alive,
+            team2Alive = team2Alive
+        })
+    end
 
 
+    self:TracePostSpawnBoundary("BEFORE_CAMERA_UPDATE")
     self:UpdateCameraDirector(team1Actors, team2Actors);
+    self:TracePostSpawnBoundary("AFTER_CAMERA_UPDATE")
+    self:TracePostSpawnBoundary("BEFORE_TOUCHDOWN_UPDATE")
     self:UpdateSpawnSettle(
         team1Actors,
         team2Actors
     );
+    self:TracePostSpawnBoundary("AFTER_TOUCHDOWN_UPDATE")
+    self:TracePostSpawnBoundary("BEFORE_FIRE_LATCH_UPDATE")
     self:UpdateAIFireDamageLatches(team1Actors, team2Actors);
+    self:TracePostSpawnBoundary("AFTER_FIRE_LATCH_UPDATE")
+    self:TracePostSpawnBoundary("BEFORE_AI_INSTRUMENTATION")
     self:UpdateAIInstrumentation(team1Actors, team2Actors);
+    self:TracePostSpawnBoundary("AFTER_AI_INSTRUMENTATION")
 
     if self.RoundOver then
         FrameMan:SetScreenText(
@@ -1438,6 +1948,7 @@ function SpectatorArena:UpdateActivity()
             self:SpawnRound();
         end
 
+        self:TracePostSpawnBoundary("UPDATE_ACTIVITY_EXIT")
         return;
     end
 
@@ -1511,6 +2022,7 @@ function SpectatorArena:UpdateActivity()
 
 
     if not self.BattleStarted then
+        self:TracePostSpawnBoundary("BEFORE_ROUND_RESULT_EVALUATION")
         if self.SpawnGraceTimer:IsPastSimMS(self.SpawnGraceDelayMS) then
             if team1Alive <= 0 and team2Alive <= 0 then
                 self:FinishRound(Activity.NOTEAM);
@@ -1534,8 +2046,14 @@ function SpectatorArena:UpdateActivity()
                 tostring(self.RoundNumber) ..
                 " armed"
             );
+            self:TracePostSpawnBoundary("BATTLE_STARTED", {
+                team1Alive = team1Alive,
+                team2Alive = team2Alive,
+                detail = "COMBAT_ACTIVE"
+            }, true)
         end
 
+        self:TracePostSpawnBoundary("UPDATE_ACTIVITY_EXIT")
         return;
     end
 
@@ -1545,23 +2063,28 @@ function SpectatorArena:UpdateActivity()
     -- periodic GOTO retargeting disabled for this experiment.
     -- Native BRAINHUNT owns normal movement/combat.
 
+    self:TracePostSpawnBoundary("BEFORE_DISTRIBUTED_TARGET_UPDATE")
     self:UpdateDistributedMovingTargets(
         team1Actors,
         team2Actors
     );
+    self:TracePostSpawnBoundary("AFTER_DISTRIBUTED_TARGET_UPDATE")
 
+    self:TracePostSpawnBoundary("BEFORE_COMBAT_PRESSURE_UPDATE")
     self:UpdateCombatPressure(
         team1Actors,
         team2Actors,
         team1Alive,
         team2Alive
     );
+    self:TracePostSpawnBoundary("AFTER_COMBAT_PRESSURE_UPDATE")
     if self.RoundTimer:IsPastSimMS(self.MaxRoundDurationMS) then
         self:ResolveWatchdog(team1Alive, team2Alive);
         return;
     end
 
 
+    self:TracePostSpawnBoundary("BEFORE_ROUND_RESULT_EVALUATION")
     if team1Alive <= 0 and team2Alive > 0 then
         self:FinishRound(self.Team2);
 
@@ -1571,6 +2094,8 @@ function SpectatorArena:UpdateActivity()
     elseif team1Alive <= 0 and team2Alive <= 0 then
         self:FinishRound(Activity.NOTEAM);
     end
+    self:TracePostSpawnBoundary("AFTER_ROUND_RESULT_EVALUATION")
+    self:TracePostSpawnBoundary("UPDATE_ACTIVITY_EXIT")
 end
 
 

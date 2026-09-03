@@ -82,6 +82,79 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertIn("UpdateAIFireDamageLatches", source)
         self.assertIn("RecordCombatSignals", source)
 
+    def test_spawn_loadout_diagnostic_does_not_flush_console(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+        start = source.index("function SpectatorArena:CreateFactionSoldier")
+        end = source.index("\nfunction ", start + 10)
+        spawn_body = source[start:end]
+        self.assertNotIn("self.Telemetry.Snapshot()", spawn_body)
+
+    def test_arena_loadout_reconciliation_samples_post_insertion_and_first_update(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn('self:RecordLoadoutDiagnostic("WEAPON_POST_INSERTION"', source)
+        self.assertIn('RecordLoadoutDiagnostic("WEAPON_FIRST_UPDATE"', source)
+        self.assertIn("self.A1FirstUpdateLoadoutObserved", source)
+        self.assertIn("actor.EquippedItem", source)
+        self.assertIn("actor.EquippedBGItem", source)
+
+    def test_spawn_trace_is_bounded_and_persisted_only_at_terminal_boundaries(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+        self.assertIn("function SpectatorArena:RecordSpawnTrace", source)
+        self.assertIn("self.ArenaSpawnTraceLimit", source)
+        self.assertIn("function SpectatorArena:PersistSpawnTrace", source)
+        self.assertIn('"ROUND_SPAWN_COMPLETE"', source)
+        self.assertIn('"STARTUP_DIAGNOSTIC_TIMEOUT"', source)
+        trace_start = source.index("function SpectatorArena:RecordSpawnTrace")
+        trace_end = source.index("\nfunction ", trace_start + 10)
+        trace_body = source[trace_start:trace_end]
+        self.assertNotIn("Snapshot()", trace_body)
+
+    def test_post_spawn_trace_is_bounded_sparse_and_one_shot(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn("function SpectatorArena:RecordPostSpawnTrace", source)
+        self.assertIn("self.A1PostSpawnTraceLimit", source)
+        self.assertIn("function SpectatorArena:PersistPostSpawnTrace", source)
+        self.assertIn("self.A1PostSpawnTracePersisted", source)
+        self.assertIn("SPECTATOR_ARENA_POST_SPAWN_TRACE_LOG.txt", source)
+        self.assertIn("self.A1PostSpawnWallTimer.ElapsedRealTimeMS", source)
+        self.assertIn('self:PersistPostSpawnTrace("DIAGNOSTIC_TIMEOUT"', source)
+        self.assertIn('self:PersistPostSpawnTrace("ROUND_RESULT"', source)
+
+        for milestone in (1, 2, 10, 60, 300):
+            self.assertIn(f"[{milestone}] = true", source)
+
+        for stage in (
+            "UPDATE_ACTIVITY_ENTER",
+            "BEFORE_CAMERA_UPDATE",
+            "AFTER_CAMERA_UPDATE",
+            "BEFORE_TOUCHDOWN_UPDATE",
+            "AFTER_TOUCHDOWN_UPDATE",
+            "BEFORE_FIRE_LATCH_UPDATE",
+            "AFTER_FIRE_LATCH_UPDATE",
+            "BEFORE_AI_INSTRUMENTATION",
+            "AFTER_AI_INSTRUMENTATION",
+            "ALL_ACTORS_RELEASED",
+            "BATTLE_STARTED",
+            "ROUND_RESULT",
+        ):
+            self.assertIn(f'"{stage}"', source)
+
+        trace_start = source.index("function SpectatorArena:RecordPostSpawnTrace")
+        trace_end = source.index("\nfunction ", trace_start + 10)
+        trace_body = source[trace_start:trace_end]
+        self.assertNotIn("Snapshot(", trace_body)
+        self.assertNotIn("AIMode =", trace_body)
+        self.assertNotIn("ClearAIWaypoints", trace_body)
+        self.assertNotIn("AddAISceneWaypoint", trace_body)
+        self.assertNotIn("AddAIMOWaypoint", trace_body)
+
+        instrumentation_start = source.index("function SpectatorArena:UpdateAIInstrumentation")
+        instrumentation_end = source.index("\nfunction ", instrumentation_start + 10)
+        instrumentation_body = source[instrumentation_start:instrumentation_end]
+        self.assertIn("self:RecordA1ProgressMarkers()", instrumentation_body)
+
 
 if __name__ == "__main__":
     unittest.main()

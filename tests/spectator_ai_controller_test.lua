@@ -136,6 +136,39 @@ controller:RecordCombatSignals(101, 14000, true, 70, 80)
 assertEqual(controller.Metrics.FireEvents, fireEventsBeforeSignal + 1, "high-frequency fire signal is latched")
 assertEqual(controller.Metrics.DamageEvents, damageEventsBeforeSignal + 1, "high-frequency damage signal is latched")
 
+local fireEventsBeforeSensor = controller.Metrics.FireEvents
+controller:RecordFireSensorSample(101, 14500, 77, 101, true, 2, 3)
+controller:RecordFireSensorSample(101, 14517, 77, 101, false, 0, 0)
+local fireSensorState = controller:GetFireSensorState(101)
+assertEqual(fireSensorState.Team, 1, "fire sensor state retains the actor team")
+assertEqual(fireSensorState.FirearmMOID, 77, "fire sensor state retains the equipped firearm MOID")
+assertEqual(fireSensorState.FirearmRootMOID, 101, "fire sensor state retains the firearm root MOID")
+assertEqual(fireSensorState.SampleCount, 2, "fire sensor state counts consecutive samples")
+assertEqual(fireSensorState.FirstSampleTimeMS, 14500, "fire sensor state records the first sample timestamp")
+assertEqual(fireSensorState.LastSampleTimeMS, 14517, "fire sensor state records the latest sample timestamp")
+assertEqual(fireSensorState.FiredFrameTransitions, 1, "fire sensor state records a fired-frame rising transition")
+assertEqual(fireSensorState.RoundsFiredSamples, 1, "fire sensor state records positive rounds-fired samples")
+assertEqual(fireSensorState.FireEventCount, fireEventsBeforeSensor + 1, "fire sensor samples latch one durable fire event")
+assertEqual(fireSensorState.FireFrameCount, 1, "fire sensor state counts fired frames")
+assertEqual(fireSensorState.RoundsDischargedObserved, 2, "fire sensor state counts observed discharged rounds")
+
+local fireSensorSnapshot = controller:Snapshot()
+assertEqual(fireSensorSnapshot.FireSensorSamples, 2, "fire sensor samples are aggregated")
+assertEqual(fireSensorSnapshot.FirearmEquippedSamples, 2, "equipped firearms are aggregated")
+assertEqual(fireSensorSnapshot.FiredFrameSamples, 1, "positive fired-frame samples are aggregated")
+assertEqual(fireSensorSnapshot.RoundsFiredSamples, 1, "positive rounds-fired samples are aggregated")
+assertEqual(fireSensorSnapshot.FireFrameCount, 1, "fired frames are aggregated")
+assertEqual(fireSensorSnapshot.RoundsDischargedObserved, 2, "discharged rounds are aggregated")
+assertEqual(fireSensorSnapshot.AlarmEventsObserved, 3, "alarm events are aggregated once per timestamp")
+
+controller:RecordFireSensorContext(101, "FG", "HDFirearm", "HeldDevice", 3, 1)
+fireSensorState = controller:GetFireSensorState(101)
+assertEqual(fireSensorState.FirearmSlot, "FG", "fire sensor state records the hand holding the firearm")
+assertEqual(fireSensorState.EquippedItemClass, "HDFirearm", "fire sensor state records the foreground item class")
+assertEqual(fireSensorState.EquippedBGItemClass, "HeldDevice", "fire sensor state records the background item class")
+assertEqual(fireSensorState.InventorySize, 3, "fire sensor state records the inventory size")
+assertEqual(fireSensorState.InventoryFirearmCount, 1, "fire sensor state records inventory firearms")
+
 controller:RecordShadowBatchMetrics({
     visibleOpponents = 3,
     visibleOpponentChecks = 8,

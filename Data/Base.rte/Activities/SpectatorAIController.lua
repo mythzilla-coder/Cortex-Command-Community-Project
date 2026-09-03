@@ -127,6 +127,23 @@ local function copySample(timestampMS, x, y, waypointX, waypointY, hardEngaged, 
     }
 end
 
+local function fireSensorMetrics()
+    return {
+        FireSensorSamples = 0,
+        FirearmEquippedSamples = 0,
+        FirearmMissingSamples = 0,
+        FireFrameCount = 0,
+        RoundsDischargedObserved = 0,
+        FiredFrameSamples = 0,
+        FiredFrameTransitions = 0,
+        RoundsFiredSamples = 0,
+        RoundsFiredTotal = 0,
+        AlarmEventSnapshots = 0,
+        AlarmEventsObserved = 0,
+        LastAlarmEventTimestampMS = nil
+    }
+end
+
 function SpectatorAIController.Create(config)
     config = config or {}
 
@@ -163,6 +180,10 @@ function SpectatorAIController.Create(config)
         }
     }
 
+    for key, value in pairs(fireSensorMetrics()) do
+        controller.Metrics[key] = value
+    end
+
     return setmetatable(controller, { __index = SpectatorAIController })
 end
 
@@ -190,6 +211,9 @@ function SpectatorAIController:BeginRound(roundID, seed)
         ContactLosses = 0,
         ShadowObservationTimeMS = 0
     }
+    for key, value in pairs(fireSensorMetrics()) do
+        self.Metrics[key] = value
+    end
 end
 
 function SpectatorAIController:RegisterActor(actorID, team, spawnIndex)
@@ -324,6 +348,137 @@ function SpectatorAIController:RecordCombatSignals(actorID, timestampMS, firing,
     end
 
     return true
+end
+
+function SpectatorAIController:RecordFireSensorSample(
+    actorID,
+    timestampMS,
+    firearmMOID,
+    firearmRootMOID,
+    firedFrame,
+    roundsFired,
+    alarmEventCount
+)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    local hasFirearm = firearmMOID ~= nil
+    local fired = firedFrame == true
+    local firedRounds = type(roundsFired) == "number" and roundsFired or 0
+
+    actor.FirearmMOID = firearmMOID
+    actor.FirearmRootMOID = firearmRootMOID
+    actor.FireSensorSampleCount = (actor.FireSensorSampleCount or 0) + 1
+    actor.FirstFireSensorSampleTimeMS = actor.FirstFireSensorSampleTimeMS or timestampMS
+    actor.LastFireSensorSampleTimeMS = timestampMS
+    actor.LastFiredFrame = fired
+    actor.LastRoundsFired = firedRounds
+
+    if fired then
+        self:RecordFireEvent(actorID, timestampMS)
+        actor.FireFrameCount = (actor.FireFrameCount or 0) + 1
+        actor.RoundsDischargedObserved = (actor.RoundsDischargedObserved or 0) + math.max(1, firedRounds)
+        self.Metrics.FireFrameCount = self.Metrics.FireFrameCount + 1
+        self.Metrics.RoundsDischargedObserved =
+            self.Metrics.RoundsDischargedObserved + math.max(1, firedRounds)
+    end
+
+    self.Metrics.FireSensorSamples = self.Metrics.FireSensorSamples + 1
+    if hasFirearm then
+        self.Metrics.FirearmEquippedSamples = self.Metrics.FirearmEquippedSamples + 1
+    else
+        self.Metrics.FirearmMissingSamples = self.Metrics.FirearmMissingSamples + 1
+    end
+    if fired then
+        self.Metrics.FiredFrameSamples = self.Metrics.FiredFrameSamples + 1
+        if actor.PreviousFiredFrame ~= true then
+            actor.FiredFrameTransitions = (actor.FiredFrameTransitions or 0) + 1
+            self.Metrics.FiredFrameTransitions = self.Metrics.FiredFrameTransitions + 1
+        end
+    end
+    if firedRounds > 0 then
+        actor.RoundsFiredSamples = (actor.RoundsFiredSamples or 0) + 1
+        self.Metrics.RoundsFiredSamples = self.Metrics.RoundsFiredSamples + 1
+        self.Metrics.RoundsFiredTotal = self.Metrics.RoundsFiredTotal + firedRounds
+    end
+    actor.PreviousFiredFrame = fired
+
+    if type(alarmEventCount) == "number"
+        and self.Metrics.LastAlarmEventTimestampMS ~= timestampMS
+    then
+        self.Metrics.LastAlarmEventTimestampMS = timestampMS
+        self.Metrics.AlarmEventSnapshots = self.Metrics.AlarmEventSnapshots + 1
+        self.Metrics.AlarmEventsObserved = self.Metrics.AlarmEventsObserved + alarmEventCount
+    end
+
+    return true
+end
+
+function SpectatorAIController:GetFireSensorState(actorID)
+    local actor = self.ActorState[actorID]
+    if not actor or not actor.FireSensorSampleCount then
+        return nil
+    end
+
+    return {
+        ActorID = actor.UniqueID,
+        Team = actor.Team,
+        FirearmMOID = actor.FirearmMOID,
+        FirearmRootMOID = actor.FirearmRootMOID,
+        FirearmSlot = actor.FirearmSlot,
+        EquippedItemClass = actor.EquippedItemClass,
+        EquippedBGItemClass = actor.EquippedBGItemClass,
+        InventorySize = actor.InventorySize,
+        InventoryFirearmCount = actor.InventoryFirearmCount,
+        SampleCount = actor.FireSensorSampleCount,
+        FirstSampleTimeMS = actor.FirstFireSensorSampleTimeMS,
+        LastSampleTimeMS = actor.LastFireSensorSampleTimeMS,
+        FiredFrameTransitions = actor.FiredFrameTransitions or 0,
+        RoundsFiredSamples = actor.RoundsFiredSamples or 0,
+        LastFiredFrame = actor.LastFiredFrame == true,
+        LastRoundsFired = actor.LastRoundsFired or 0,
+        LastFireTimeMS = actor.LastFireTimeMS,
+        FireEventCount = actor.FireEventCount or 0,
+        FireFrameCount = actor.FireFrameCount or 0,
+        RoundsDischargedObserved = actor.RoundsDischargedObserved or 0
+    }
+end
+
+function SpectatorAIController:RecordFireSensorContext(
+    actorID,
+    firearmSlot,
+    equippedItemClass,
+    equippedBGItemClass,
+    inventorySize,
+    inventoryFirearmCount
+)
+    local actor = self.ActorState[actorID]
+    if not actor then
+        return false
+    end
+
+    actor.FirearmSlot = firearmSlot
+    actor.EquippedItemClass = equippedItemClass
+    actor.EquippedBGItemClass = equippedBGItemClass
+    actor.InventorySize = inventorySize
+    actor.InventoryFirearmCount = inventoryFirearmCount
+    return true
+end
+
+function SpectatorAIController:GetFireSensorStates()
+    local states = {}
+    for actorID in pairs(self.ActorState) do
+        local state = self:GetFireSensorState(actorID)
+        if state then
+            states[#states + 1] = state
+        end
+    end
+    table.sort(states, function(left, right)
+        return left.ActorID < right.ActorID
+    end)
+    return states
 end
 
 function SpectatorAIController:RecordShadowObservation(actorID, timestampMS, hasLOS, firing, health, previousHealth, visibleEnemyID)
@@ -508,7 +663,18 @@ function SpectatorAIController:Snapshot()
         ActorSkips = self.Metrics.ActorSkips,
         ContactAcquisitions = self.Metrics.ContactAcquisitions,
         ContactLosses = self.Metrics.ContactLosses,
-        ShadowObservationTimeMS = self.Metrics.ShadowObservationTimeMS
+        ShadowObservationTimeMS = self.Metrics.ShadowObservationTimeMS,
+        FireSensorSamples = self.Metrics.FireSensorSamples,
+        FirearmEquippedSamples = self.Metrics.FirearmEquippedSamples,
+        FirearmMissingSamples = self.Metrics.FirearmMissingSamples,
+        FireFrameCount = self.Metrics.FireFrameCount,
+        RoundsDischargedObserved = self.Metrics.RoundsDischargedObserved,
+        FiredFrameSamples = self.Metrics.FiredFrameSamples,
+        FiredFrameTransitions = self.Metrics.FiredFrameTransitions,
+        RoundsFiredSamples = self.Metrics.RoundsFiredSamples,
+        RoundsFiredTotal = self.Metrics.RoundsFiredTotal,
+        AlarmEventSnapshots = self.Metrics.AlarmEventSnapshots,
+        AlarmEventsObserved = self.Metrics.AlarmEventsObserved
     }
 end
 

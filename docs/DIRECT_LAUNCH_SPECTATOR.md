@@ -39,4 +39,4 @@ Keep the source startup selection in Git. Do not commit `Userdata/Settings.ini`;
 
 ## Current camera review
 
-The current Camera Director can find active combat, but its midpoint focus is not always as readable as the earlier soldier-centered behavior. The planned correction is a hybrid policy: soldier-following remains the default, with occasional, stability-limited switches to a stronger combat point of interest. See `docs/HANDOFF_CAMERA_HYBRID_REVIEW.md` before implementing that revision.
+The current Camera Director now uses the hybrid policy: soldier-following remains the default, with occasional, stability-limited switches to a stronger combat point of interest. Human review found the POI switch can be abrupt and late. The next revision should make the camera event-aware so a likely off-screen kill by the followed soldier briefly brings the event location into view. See `docs/HANDOFF_CAMERA_EVENT_AWARE.md`.
