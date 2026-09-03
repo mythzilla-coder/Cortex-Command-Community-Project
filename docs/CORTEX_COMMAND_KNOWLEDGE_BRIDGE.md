@@ -1,6 +1,6 @@
 # Cortex Command — Shared Knowledge Bridge
 
-Last synchronized: 2026-09-02
+Last synchronized locally: 2026-09-03
 
 This is the repository-side continuity contract for regular ChatGPT and Codex. External Drive and Notion records are continuity mirrors; newer local Git, tests, and runtime evidence take precedence.
 
@@ -19,7 +19,11 @@ Before implementation, inspect `git status`, the current branch/HEAD, recent his
 `C:\Users\mythz\Documents\Cortex-Command-Community-Project`
 
 Current local branch: `spectator-random-factions`  
-Current local HEAD: `d5c9b787c Integrate spectator AI V2 controller in off mode`
+Current local HEAD: `1bff421aefaa5f383aa815502d150a885c5b2735 Trace Arena firearm attachment boundary`
+
+The working tree is dirty with newer post-checkpoint runtime evidence and
+unrelated camera/research work. Preserve that state; do not reset, clean,
+merge, rebase, or downgrade it.
 
 Important local milestones:
 
@@ -28,6 +32,8 @@ Important local milestones:
 - `94ee8e328`: V11 touchdown gate.
 - `de7031896`: V11.1 target-spread improvement.
 - `46755ce40`: telemetry sink emission fix.
+- `1bff421ae`: R1 attachment-boundary trace; retained Arena firearm wrappers
+  remain valid/attached while normal actor-owned discovery is empty.
 
 ## Current product
 
@@ -77,7 +83,13 @@ Relevant files:
 
 The first behavior-neutral foundation is present in `Data/Base.rte/Activities/SpectatorAIController.lua`, and `SpectatorArena.lua` now wires it in explicit `OFF` mode. Actors are registered at spawn, released only at the existing accepted touchdown boundary, and sampled at a low cadence after `AI_TOUCHDOWN_ALL_RELEASED`; the controller does not mutate actors, AIMode, waypoints, controllers, or combat behavior. `AI_V2_CONFIG` is emitted through the existing telemetry helper.
 
-This is instrumentation only. Do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW evidence exists. Runtime telemetry capture is now functioning through the activity-scoped `SPECTATOR_EVENT_LOG.txt` snapshot path, but the 50-round OFF-mode baseline is still incomplete.
+This is instrumentation only. Production `AI_V2_MODE` remains explicitly
+`OFF`; do not enable `TASKS` or `TACTICAL` behavior until baseline and SHADOW
+evidence exists. R1B rules out simple wrapper loss, sampled deletion, simple
+world drop, and a SHADOW-only cause, but leaves an unresolved
+attachment/discovery-path mismatch. Runtime telemetry capture is functioning
+through the activity-scoped `SPECTATOR_EVENT_LOG.txt` snapshot path, but the
+50-round OFF-mode baseline is still incomplete.
 
 ## Work protocol
 
@@ -85,4 +97,4 @@ Prefer deterministic tests, logs, state, and soak reports during autonomous work
 
 Next decision gate:
 
-`collect OFF-mode baseline -> visually review camera -> accept/reject camera -> commit/synchronize -> build minimal stream-facing HUD`
+`R2 fixture/Arena identity-topology comparison at T0-T3 -> resolve firearm discovery -> live Arena fire evidence -> D1 damage semantics -> telemetry freeze -> OFF baseline`

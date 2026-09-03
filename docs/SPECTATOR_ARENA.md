@@ -8,7 +8,21 @@ The current content is deliberately conservative: two autonomous teams of eight 
 
 ## Current local state
 
-The authoritative local checkout is on branch `spectator-random-factions` at `46755ce40` (`Fix spectator telemetry sink emission`). The V11/V11.1 AI baseline is committed and accepted for now. The event-aware camera remains uncommitted and pending human visual review. See `docs/CORTEX_COMMAND_KNOWLEDGE_BRIDGE.md` for the cross-environment source-of-truth and continuation protocol.
+The authoritative local checkout is on branch `spectator-random-factions` at
+`1bff421aefaa5f383aa815502d150a885c5b2735` (`Trace Arena firearm attachment
+boundary`). The V11/V11.1 AI baseline is committed and accepted for now.
+Post-checkpoint R1B/A1 runtime evidence is retained locally; the working tree
+also contains unrelated uncommitted camera/research work and diagnostic
+artifacts that must not be reset. See
+`docs/CORTEX_COMMAND_KNOWLEDGE_BRIDGE.md` for the cross-environment
+source-of-truth and continuation protocol.
+
+The current diagnostic conclusion is **UNRESOLVED attachment/discovery-path
+mismatch**: a retained Arena firearm wrapper remains valid and attached after
+the first enumerable update, but `FGArm.HeldDevice` and ordinary
+foreground/background/inventory discovery are empty, with no matching bounded
+`MovableMan.Items` entry. This does not justify a production workaround.
+Production `AI_V2_MODE` remains explicitly `OFF`.
 
 ## Startup flow
 

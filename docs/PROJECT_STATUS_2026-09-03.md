@@ -2,7 +2,12 @@
 
 Date: 2026-09-03  
 Branch: `spectator-random-factions`  
-Checkpoint HEAD: `5d045234a721f8cfde9d05815d3955de5716b1d4`
+Checkpoint HEAD: `1bff421aefaa5f383aa815502d150a885c5b2735` (`Trace Arena firearm attachment boundary`)
+
+Local evidence state: post-checkpoint R1B/A1 runtime artifacts are present in
+the working tree and are authoritative for this status. The working tree is
+intentionally dirty with unrelated camera/research work and diagnostic output;
+none of that work is being reset or downgraded.
 
 ## Current conclusion
 
@@ -53,8 +58,9 @@ result.
 
 ## Next recommended action
 
-Run one controlled fixture/Arena identity comparison with matching direct
-`FGArm`/`HeldDevice`, attachment, parent/root identity, and bounded world-item
+Run R2: one controlled known-good fixture/Arena identity comparison at T0–T3,
+with matching direct `Actor`, `FGArm`/`BGArm`, `HeldDevice`, weapon,
+attachment/parent/root, `UniqueID`/`MOID`/`RootMOID`, and bounded world-item
 fields. Change no Arena behavior. The retained-reference experiment already
 rules out simple wrapper loss; the remaining question is which attachment or
 discovery path owns the still-attached object.
