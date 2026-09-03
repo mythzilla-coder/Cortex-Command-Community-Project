@@ -98,6 +98,24 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertIn("actor.EquippedItem", source)
         self.assertIn("actor.EquippedBGItem", source)
 
+    def test_arena_retained_weapon_reference_is_opt_in_and_read_only(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn("self.A1RetainWeaponReference", source)
+        self.assertIn("self.A1DiagnosticWeaponRefs[actor.UniqueID] = weapon", source)
+        self.assertIn("local retainedWeapon = arena.A1DiagnosticWeaponRefs[actor.UniqueID]", source)
+        self.assertNotIn("retainedWeapon:Set", source)
+        self.assertNotIn("retainedWeapon.ToDelete =", source)
+
+    def test_arena_reconciliation_inspects_attachment_and_world_presence_read_only(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn("actor.FGArm", source)
+        self.assertIn("foregroundArmAttached", source)
+        self.assertIn("retainedAttached", source)
+        self.assertIn("worldItemCount", source)
+        self.assertIn("retainedWorldItem", source)
+
     def test_spawn_trace_is_bounded_and_persisted_only_at_terminal_boundaries(self):
         source = ACTIVITY.read_text(encoding="utf-8")
         self.assertIn("function SpectatorArena:RecordSpawnTrace", source)

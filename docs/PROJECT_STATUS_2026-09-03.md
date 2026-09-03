@@ -12,11 +12,14 @@ durable SHADOW latch all pass. The Arena also progresses normally after spawn,
 and a three-round SHADOW smoke produced real LOS-positive contacts and contact
 transitions without watchdog/runtime errors.
 
-The current blocker is narrower: Arena actors lose their equipped firearm
-between the immediate post-`AddActor` checkpoint and the first enumerable
-activity update. Because live Arena firearm discovery remains zero, the smoke
-cannot yet validate live fire-latch events. F3 should not be modified unless
-new Arena evidence contradicts the controlled 10/10 result.
+The current blocker is narrower: Arena actor-owned firearm discovery is empty by
+the first enumerable activity update. R1B retained-reference evidence shows the
+firearm wrapper remains valid and attached, with no matching world item, so this
+is an unresolved attachment/discovery-path mismatch rather than a proven
+deletion or Lua-wrapper lifetime failure. Because live Arena firearm discovery
+remains zero, the smoke cannot yet validate live fire-latch events. F3 should
+not be modified unless new Arena evidence contradicts the controlled 10/10
+result.
 
 ## Stable project boundaries
 
@@ -50,16 +53,11 @@ new Arena evidence contradicts the controlled 10/10 result.
 
 ## Next recommended action
 
-Run one diagnostic differential: retain the spawned Arena firearm as an
-activity-owned Lua reference until the first actor-enumerable update. Change no
-other variable. This tests the strongest remaining difference from the
-known-good controlled fixture while preserving the accepted behavior and F3
-implementation.
-
-If retention succeeds, isolate the ownership/lifetime semantics and design the
-smallest safe correction. If it fails, add read-only foreground-arm attachment
-and nearby-world-item observations, then compare one Arena/fixture difference
-at a time.
+Run one controlled fixture/Arena identity comparison with matching direct
+`FGArm`/`HeldDevice`, attachment, parent/root identity, and bounded world-item
+fields. Change no Arena behavior. The retained-reference experiment already
+rules out simple wrapper loss; the remaining question is which attachment or
+discovery path owns the still-attached object.
 
 After Arena firearm discovery and live fire-latch evidence pass, proceed in
 this order:
@@ -74,4 +72,3 @@ D1 damage semantics
 ```
 
 Detailed evidence: `docs/SPECTATOR_ARENA_A1_FIREARM_RECON_REPORT_2026-09-03.md`.
-

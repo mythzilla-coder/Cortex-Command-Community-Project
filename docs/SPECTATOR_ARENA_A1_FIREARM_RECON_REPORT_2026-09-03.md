@@ -94,20 +94,36 @@ This is not evidence that `FiredFrame`, the durable F3 latch, or generic
 `AddInventoryItem` is broken. Controlled fixture evidence already proves those
 primitives. It is an Arena-specific lifetime/ownership transition.
 
-## Current hypotheses and next discriminator
+## R1 identity/lifetime differential
 
-The highest-value untested difference is Lua reference lifetime. Known-good
-controlled fixtures retain the created weapon as `self.Weapon`; the Arena keeps
-only a local reference after handing it to the actor. The C++ Lua bindings use
-adopt semantics, so this is a hypothesis rather than a conclusion.
+The retained-reference differential was run with production behavior OFF. The
+flag was explicitly verified before launch and restored afterward. All 16
+post-insertion records showed `retentionEnabled=true` and
+`retainedReference=true`. At the first actor-enumerable update, all 16 retained
+wrappers were still valid named firearms with populated identity fields. The
+sampled retained firearms also reported `retainedAttached=true`; none appeared
+in the bounded `MovableMan.Items` scan. At the same update, the actor’s
+foreground-arm holder and normal foreground/background/inventory discovery
+paths were empty.
 
-The next recommended experiment is one variable only: retain each Arena spawn
-weapon in an activity-owned diagnostic table through the first actor-enumerable
-update, with production still OFF. If the weapons survive, the fixture exposed
-a Lua ownership/lifetime dependency. If they still disappear, rule that out and
-inspect arm attachment state and other single-variable Arena/fixture
-differences. Do not change firing, AIMode, controller input, waypoints, SHADOW
-latching, damage semantics, or camera behavior in that experiment.
+The no-retention OFF control reported empty actor discovery and zero nearby world
+items, matching the original R1A boundary. The known-good controlled fixture
+comparison remains consistent: it stores the created weapon as `self.Weapon` and
+still reports the SMG as foreground at its first update, but its historical log
+does not include the same MOID/arm identity fields.
+
+Classification: **UNRESOLVED** attachment/discovery-path mismatch.
+
+Native evidence rules out simple Lua wrapper loss, firearm deletion during the
+sampled interval, a simple world drop into `MovableMan.Items`, and a SHADOW-only
+cause. It does not yet prove which parent/attachment path owns the still-attached
+object, or whether the `EquippedItem`/arm discovery path is failing for this
+Arena topology. Do not turn retained wrapper storage into a production fix.
+
+The next discriminator is a controlled fixture/Arena identity comparison that
+adds the same direct `FGArm`/`HeldDevice`, attachment, parent/root identity, and
+bounded world-item fields to the known-good fixture. Keep the Arena unchanged
+and compare one lifecycle difference at a time.
 
 ## Gate status
 
@@ -143,4 +159,5 @@ latching, damage semantics, or camera behavior in that experiment.
 - `SPECTATOR_ARENA_LOADOUT_RECON_TRACE_LOG_2026-09-03.txt`
 - `ARENA_LOADOUT_RECON_NATIVE_STDOUT.txt`
 - `ARENA_LOADOUT_RECON_NATIVE_STDERR.txt`
-
+- `SPECTATOR_ARENA_R1B_ATTACHMENT_TRACE_LOG_2026-09-03.txt`
+- `SPECTATOR_ARENA_R1_ATTACHMENT_OFF_TRACE_LOG_2026-09-03.txt`

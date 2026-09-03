@@ -287,6 +287,11 @@ local moduleID = PresetMan:GetModuleID(factionName);
             weapon = weapon.PresetName,
             weaponModule = weapon.ModuleID
         });
+        if self.A1RetainWeaponReference then
+            -- Diagnostic only: retain the Lua wrapper for the C++-owned item
+            -- through the first enumerable update. Do not mutate the weapon.
+            self.A1DiagnosticWeaponRefs[actor.UniqueID] = weapon;
+        end
     end
 
     return actor;
@@ -399,6 +404,8 @@ function SpectatorArena:SpawnRound()
                 equippedIsFirearm = postInsertionItem and IsHDFirearm(postInsertionItem) or false,
                 equippedMOID = postInsertionItem and postInsertionItem.ID or -1,
                 equippedRootMOID = postInsertionItem and postInsertionItem.RootID or -1,
+                retentionEnabled = self.A1RetainWeaponReference,
+                retainedReference = self.A1DiagnosticWeaponRefs[actor.UniqueID] ~= nil,
                 background = postInsertionBGItem and postInsertionBGItem.PresetName or "NONE",
                 backgroundClass = postInsertionBGItem and postInsertionBGItem.ClassName or "NONE",
                 inventory = actor.InventorySize,
@@ -455,6 +462,8 @@ function SpectatorArena:SpawnRound()
                 equippedIsFirearm = postInsertionItem and IsHDFirearm(postInsertionItem) or false,
                 equippedMOID = postInsertionItem and postInsertionItem.ID or -1,
                 equippedRootMOID = postInsertionItem and postInsertionItem.RootID or -1,
+                retentionEnabled = self.A1RetainWeaponReference,
+                retainedReference = self.A1DiagnosticWeaponRefs[actor.UniqueID] ~= nil,
                 background = postInsertionBGItem and postInsertionBGItem.PresetName or "NONE",
                 backgroundClass = postInsertionBGItem and postInsertionBGItem.ClassName or "NONE",
                 inventory = actor.InventorySize,
@@ -948,6 +957,8 @@ function SpectatorArena:StartActivity()
     self.LoadoutDiagnosticCount = 0;
     self.LoadoutDiagnosticLimit = 64;
     self.LoadoutDiagnosticSnapshotFactions = {};
+    self.A1RetainWeaponReference = false;
+    self.A1DiagnosticWeaponRefs = {};
     self.AIController = require("Activities/SpectatorAIController").Create({
         mode = self.AI_V2_MODE,
         positionHistoryLimit = 4
@@ -1882,6 +1893,23 @@ function SpectatorArena:UpdateActivity()
                 arena.A1FirstUpdateLoadoutObserved[actor.UniqueID] = true;
                 local equippedItem = actor.EquippedItem;
                 local backgroundItem = actor.EquippedBGItem;
+                local retainedWeapon = arena.A1DiagnosticWeaponRefs[actor.UniqueID];
+                local foregroundArm = actor.FGArm;
+                local foregroundHeldDevice = foregroundArm and foregroundArm.HeldDevice;
+                local retainedAttached = false;
+                if retainedWeapon and IsAttachable(retainedWeapon) then
+                    retainedAttached = retainedWeapon:IsAttached();
+                end
+                local worldItemCount = 0;
+                local retainedWorldItem = false;
+                if retainedWeapon then
+                    for item in MovableMan.Items do
+                        worldItemCount = worldItemCount + 1;
+                        if item.ID == retainedWeapon.ID then
+                            retainedWorldItem = true;
+                        end
+                    end
+                end
                 arena:RecordLoadoutDiagnostic("WEAPON_FIRST_UPDATE", {
                     actor = actor.UniqueID,
                     actorValid = MovableMan:IsActor(actor),
@@ -1890,6 +1918,18 @@ function SpectatorArena:UpdateActivity()
                     equippedIsFirearm = equippedItem and IsHDFirearm(equippedItem) or false,
                     equippedMOID = equippedItem and equippedItem.ID or -1,
                     equippedRootMOID = equippedItem and equippedItem.RootID or -1,
+                    retained = retainedWeapon ~= nil,
+                    retainedValid = retainedWeapon and IsHDFirearm(retainedWeapon) or false,
+                    retainedPreset = retainedWeapon and retainedWeapon.PresetName or "NONE",
+                    retainedMOID = retainedWeapon and retainedWeapon.ID or -1,
+                    retainedRootMOID = retainedWeapon and retainedWeapon.RootID or -1,
+                    retainedAttached = retainedAttached,
+                    foregroundArmAttached = foregroundArm and foregroundArm:IsAttached() or false,
+                    foregroundArmMOID = foregroundArm and foregroundArm.ID or -1,
+                    foregroundArmHeld = foregroundHeldDevice and foregroundHeldDevice.PresetName or "NONE",
+                    foregroundArmHeldMOID = foregroundHeldDevice and foregroundHeldDevice.ID or -1,
+                    worldItemCount = worldItemCount,
+                    retainedWorldItem = retainedWorldItem,
                     background = backgroundItem and backgroundItem.PresetName or "NONE",
                     backgroundClass = backgroundItem and backgroundItem.ClassName or "NONE",
                     inventory = actor.InventorySize,
