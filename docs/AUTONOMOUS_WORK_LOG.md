@@ -269,6 +269,20 @@ bug (`NO_CANDIDATE` caused by Lua truthiness); no camera or attribution policy
 changed. Code checkpoints: `09a242eec`, `351bd91f1`, and latest sync
 `fbb12f0d4`.
 
+## 2026-09-13 — physical camera execution telemetry
+
+Added observation-only sampling of `CameraMan:GetOffset` and the active event
+target. Focused native verification produced accepted trace 6 with 121
+samples: request/target at 31833.970 ms, movement onset at 31850.637 ms
+(+16.667 ms), arrival at 32683.987 ms (+850.017 ms, 19.063 px within 24 px),
+and hold complete/return at 33834.010 ms (+2000.040 ms).
+
+The native physical execution sub-gate is PASS for one event. A separate 15 FPS
+F12 screenshot attempt produced no frames because its launcher path did not
+expose the game window, so no rendered-video acceptance is claimed. The next
+gate is 3–5 complete-round behavioral review. Implementation checkpoint:
+`cff83c0fe`; preserved log: `work/camera-event-telemetry-20260913-2312/`.
+
 ## 2026-09-13 — stream HUD overlay
 
 Implemented the approved Lua-only stream HUD in the isolated worktree. The

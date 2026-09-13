@@ -140,3 +140,29 @@ reported accepted dispositions as `NO_CANDIDATE`. It was corrected and
 regression-tested in `fbb12f0d4`; camera behavior and attribution policy were
 not changed. Implementation provenance remains `09a242eec`, accounting
 checkpoint `351bd91f1`, and latest code sync `fbb12f0d4`.
+
+## Physical camera execution observation — 2026-09-13
+
+Observation-only instrumentation sampled `CameraMan:GetOffset` every native
+update while an event target was active, alongside the requested target,
+scroll target, distance-to-target, and movement delta. It does not change the
+camera command, speed, target, hold, cooldown, priority, or attribution.
+
+The repeat native run produced accepted trace `6` in round 3 with 121 samples:
+
+- accepted/request/target: `31833.970 ms`
+- movement onset: `31850.637 ms` (`+16.667 ms`)
+- arrival: `32683.987 ms` (`+850.017 ms`), distance `19.063 px` within the
+  `24 px` observation tolerance
+- hold complete and return: `33834.010 ms` (`+2000.040 ms`)
+
+This proves the physical camera offset departed toward the requested event
+target and crossed the declared arrival threshold under one trace ID. A
+separate attempted 15 FPS rendered screenshot capture produced no frames
+because the headless launcher path did not expose the game window; no rendered
+video acceptance is claimed from that attempt. Native high-rate telemetry is
+verified, while multi-round behavioral acceptance remains **HOLD** pending
+3–5 complete rounds and visual review.
+
+Latest implementation checkpoint: `cff83c0fe`. Preserved telemetry log:
+`work/camera-event-telemetry-20260913-2312/SPECTATOR_EVENT_LOG.txt`.

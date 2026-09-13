@@ -178,3 +178,20 @@ measure movement onset or arrival precisely. Camera behavioral acceptance is
 therefore still **HOLD**. Do not widen the 400 ms window or add nearby-ally
 tracking. Implementation provenance: `09a242eec`; accounting checkpoint:
 `351bd91f1`; latest code/diagnostic-label fix: `fbb12f0d4`.
+
+## Physical camera execution checkpoint — 2026-09-13
+
+The observation-only camera sampler now records native `CameraMan` offset,
+requested target, scroll target, distance-to-target, and per-sample movement
+while an event target is active. In a repeat native run, trace `6` produced 121
+samples and proved: accepted/request/target at `31833.970 ms`, movement onset
+at `31850.637 ms` (+16.667 ms), arrival at `32683.987 ms` (+850.017 ms) with
+19.063 px distance inside the 24 px observation tolerance, and hold/return at
+`33834.010 ms` (+2000.040 ms).
+
+This closes the physical movement/onset/arrival sub-gate for one event. The
+separate rendered screenshot attempt produced no frames, so no video-level
+acceptance claim is made. Multi-round behavioral acceptance remains **HOLD**;
+next is 3–5 complete rounds covering dedupe, return, survivor priority,
+stability, and visual framing. Latest implementation checkpoint:
+`cff83c0fe`. Preserved log: `work/camera-event-telemetry-20260913-2312/`.

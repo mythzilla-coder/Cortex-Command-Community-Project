@@ -190,3 +190,14 @@ centered, but precise movement/arrival timing is not accepted from this
 sampling rate. Camera behavioral acceptance remains **HOLD** pending higher-
 rate visual review and the 3–5-round behavioral pass. Keep the 400 ms gate,
 all other attribution policy, and nearby-ally tracking scope unchanged.
+
+### Physical camera execution checkpoint — 2026-09-13
+
+Native observation telemetry proved one accepted event's physical camera
+execution under trace `6`: movement onset occurred 16.667 ms after the
+request, arrival occurred 850.017 ms after the request at 19.063 px from the
+requested camera target, and the existing 2000.040 ms hold ended with a normal
+return. The sampler produced 121 samples and did not alter camera behavior.
+The rendered 15 FPS screenshot attempt was unavailable through its launcher,
+so video-level acceptance is not claimed. Multi-round behavioral acceptance
+remains **HOLD** pending 3–5 complete rounds and visual framing review.

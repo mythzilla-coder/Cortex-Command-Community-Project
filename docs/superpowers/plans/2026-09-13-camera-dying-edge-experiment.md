@@ -195,3 +195,10 @@ Capture a rolling rendered-frame buffer at the established window size while the
 - [x] **Step 6: Document and synchronize the outcome**
 
 Record the exact counts, reason distribution, first accepted trace ID if any, frame-buffer path, and acceptance status in the four local documents. Commit, push the PR branch, fast-forward the original checkout, update the four Drive artifacts and the Notion project page, and read back all external records.
+
+### Task 6: Observe physical camera execution without changing behavior
+
+- [x] Add high-rate native camera offset, target-distance, onset, and arrival telemetry.
+- [x] Run one accepted event through movement onset, arrival, hold, and return.
+- [x] Preserve the native telemetry log and record the rendered-capture limitation.
+- [ ] Complete the separate 3–5-round behavioral acceptance review.
