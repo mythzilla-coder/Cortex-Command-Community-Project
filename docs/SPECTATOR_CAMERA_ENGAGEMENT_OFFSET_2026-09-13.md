@@ -100,3 +100,43 @@ Status: **DEATH-OBSERVATION ROOT CAUSE PASS** and **DYING OBSERVATION PASS**;
 HOLD**. The lifecycle seam is repaired for observation, while the unchanged
 classifier still needs a naturally accepted candidate before camera-event
 behavior can be accepted.
+
+## Condition-based DYING accounting capture — 2026-09-13
+
+The accounting follow-up kept the existing attribution policy unchanged and
+ran until the first natural accept. The run stopped after four completed
+rounds when the first accepted event was observed, then exited normally after
+the hold and return. A bounded rolling buffer retained 120 rendered frames at
+976x579; the accepted window is under
+`work/camera-dying-edge-rolling-20260913-223423/accepted/`.
+
+- `CAMERA_FIRE_OBSERVED`: 91
+- `CAMERA_EVENT_DYING_OBSERVED`: 44
+- `CAMERA_EVENT_ATTRIBUTION_ACCEPTED`: 2
+- `CAMERA_EVENT_ATTRIBUTION_REJECTED`: 20
+- `CAMERA_EVENT_ATTRIBUTION_NOT_EVALUATED`: 22
+- `CAMERA_EVENT_REQUEST`: 2
+- `CAMERA_EVENT_TARGET_ISSUED`: 2
+- `CAMERA_EVENT_HOLD_COMPLETE`: 2
+- `CAMERA_EVENT_RETURN`: 2
+- `CAMERA_EVENT_REMOVAL_UNCONFIRMED`: 5
+
+The accounting invariant closes exactly: `44 = 2 + 20 + 22`. Terminal
+reasons were `STALE_SHOT` 19, `SHOOTER_MISMATCH` 10,
+`NO_CORRELATABLE_SHOT` 8, and `COOLDOWN` 5. No 400 ms widening, gate change,
+priority change, or ally-tracking behavior was added.
+
+Trace `49` provides the first complete telemetry chain:
+`FIRE_OBSERVED -> DYING_OBSERVED -> ATTRIBUTION_ACCEPTED -> REQUEST ->
+TARGET_ISSUED -> HOLD_COMPLETE -> RETURN`, with one trace ID throughout.
+The sampled frames around the accepted window remain combat-centered and
+readable. Because the capture was sampled at 1 FPS, it supports visual sanity
+and the telemetry chain but does not precisely prove movement onset/arrival
+latency. Behavioral acceptance therefore remains **HOLD** pending a higher-
+rate event-window review and the separate 3–5-round acceptance pass.
+
+The initial capture exposed a diagnostic-only Lua truthiness label bug that
+reported accepted dispositions as `NO_CANDIDATE`. It was corrected and
+regression-tested in `fbb12f0d4`; camera behavior and attribution policy were
+not changed. Implementation provenance remains `09a242eec`, accounting
+checkpoint `351bd91f1`, and latest code sync `fbb12f0d4`.

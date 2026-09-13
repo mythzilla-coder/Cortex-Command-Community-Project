@@ -177,3 +177,16 @@ Next priorities are:
 5. configurable teams/loadouts
 6. define and fixture-test procedural close-quarters environment descriptors
 7. longer-duration soak testing for any accepted generated-scene candidate
+
+### Camera DYING accounting checkpoint — 2026-09-13
+
+The unchanged-policy Arena sample reached two natural attribution accepts in
+four completed rounds. Counts were 44 DYING observations, 2 accepted, 20
+rejected, and 22 not evaluated; the accounting invariant closes exactly.
+Both accepted traces issued requests and targets, completed the existing hold,
+and returned. Trace 49 is the first end-to-end telemetry correlation. The
+associated 120-frame, 1 FPS rolling buffer is visually sane and combat-
+centered, but precise movement/arrival timing is not accepted from this
+sampling rate. Camera behavioral acceptance remains **HOLD** pending higher-
+rate visual review and the 3–5-round behavioral pass. Keep the 400 ms gate,
+all other attribution policy, and nearby-ally tracking scope unchanged.

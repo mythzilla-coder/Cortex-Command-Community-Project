@@ -161,3 +161,20 @@ Prefer deterministic tests, logs, state, and soak reports during autonomous work
 Next decision gate:
 
 `R2 fixture/Arena identity-topology comparison at T0-T3 -> resolve firearm discovery -> live Arena fire evidence -> D1 damage semantics -> telemetry freeze -> OFF baseline`
+
+## Camera DYING accounting checkpoint — 2026-09-13
+
+The condition-based unchanged-policy sample reached the first natural
+attribution accepts after four completed rounds. It recorded 44 DYING edges,
+2 accepted, 20 rejected, and 22 not-evaluated candidates, so the required
+terminal accounting invariant closes exactly: `44 = 2 + 20 + 22`. The two
+accepted traces issued camera requests and targets, completed the existing
+2-second hold, and returned normally. Trace `49` is the first complete
+correlated chain. The 120-frame rolling buffer is retained locally under
+`work/camera-dying-edge-rolling-20260913-223423/accepted/`.
+
+The 1 FPS rendered sample is visually sane and combat-centered, but does not
+measure movement onset or arrival precisely. Camera behavioral acceptance is
+therefore still **HOLD**. Do not widen the 400 ms window or add nearby-ally
+tracking. Implementation provenance: `09a242eec`; accounting checkpoint:
+`351bd91f1`; latest code/diagnostic-label fix: `fbb12f0d4`.

@@ -249,6 +249,26 @@ Implemented the approved spectator-camera follow-up in an isolated worktree. The
 
 Verification passed: pure Lua camera tests, controller Lua tests, 10-test Python integration suite, Lua load checks, `git diff --check`, and native `Debug Release|x64` build with zero errors. A focused 50-frame Debug Release capture from the isolated worktree produced three `CAMERA_FIRE_CONTROLLER` followed by `CAMERA_ENGAGEMENT` transitions. Reviewed frames kept the firing side and opposing side readable, showed normal follow return, and showed no sampled jitter or empty-terrain lock. Engagement-offset decision: **ACCEPTED_FOR_THIS_REVIEW_BUILD**. The older event-aware camera milestone remains separately held; this was a local frame capture, not an MP4 screen recording.
 
+## 2026-09-13 — condition-based DYING accounting capture
+
+Ran the unchanged Arena until the first naturally accepted DYING-correlated
+event. The run reached four completed rounds, retained a 120-frame rolling
+buffer at 976x579, and exited normally after the first accepted hold/return.
+
+Verified counts: 91 fire observations, 44 DYING observations, 2 accepted, 20
+rejected, 22 not evaluated, 5 removal-unconfirmed, 2 requests, 2 targets, 2
+hold completions, and 2 returns. The invariant `44 = 2 + 20 + 22` closes.
+Rejection/not-evaluated reasons were STALE_SHOT 19, SHOOTER_MISMATCH 10,
+NO_CORRELATABLE_SHOT 8, and COOLDOWN 5. Trace 49 spans fire, DYING,
+acceptance, request, target, hold, and return.
+
+The rendered 1 FPS buffer is visually sane but is insufficient for precise
+movement-onset/arrival timing, so camera behavioral acceptance remains HOLD.
+The capture exposed and the latest code fixed only an accepted-reason label
+bug (`NO_CANDIDATE` caused by Lua truthiness); no camera or attribution policy
+changed. Code checkpoints: `09a242eec`, `351bd91f1`, and latest sync
+`fbb12f0d4`.
+
 ## 2026-09-13 — stream HUD overlay
 
 Implemented the approved Lua-only stream HUD in the isolated worktree. The
