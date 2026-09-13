@@ -128,7 +128,7 @@ The round reset removes surviving team actors without creating artificial gibs, 
 
 ## Verification and known issues
 
-The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. Its required helper module and pure test are now packaged with the activity so a clean checkout is self-contained. The source was rebuilt as `Debug Release|x64` with zero build errors. The separate engagement-offset follow-up was visually reviewed in an isolated Debug Release capture on 2026-09-13: 50 frames, three `CAMERA_FIRE_CONTROLLER` → `CAMERA_ENGAGEMENT` transitions, readable opposing combatants, ordinary follow return, and no sampled jitter or empty-terrain lock. The engagement-offset behavior is **ACCEPTED_FOR_THIS_REVIEW_BUILD**. The older event-aware off-screen cut, deduplication, and last-survivor acceptance milestone remains **HOLD_FOR_VISUAL_ACCEPTANCE**.
+The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. Its required helper module and pure test are now packaged with the activity so a clean checkout is self-contained. The source was rebuilt as `Debug Release|x64` with zero build errors. The separate engagement-offset follow-up was visually reviewed in an isolated Debug Release capture on 2026-09-13: 50 frames over approximately 25 seconds across rounds 28→29, readable opposing combatants, ordinary follow return, and no sampled jitter or empty-terrain lock. **Visual sanity: PASS. Camera acceptance: HOLD.** The sample does not prove attributable event cuts, request-to-arrival timing, deduplication/retrigger suppression, return behavior, survivor priority, or 3–5 complete rounds; earlier telemetry also recorded zero events passing the conservative attribution gate. The HUD remains **ACCEPTED_FOR_THIS_REVIEW_BUILD** independently.
 
 The stream-facing HUD follow-up is also **ACCEPTED_FOR_THIS_REVIEW_BUILD**. It uses Lua-only screen primitives for upper-corner team panels, a centered round/time header, combat pressure, and the existing centered result banner. A 100-frame native capture showed readable battle HUD placement and the transition into round 2; the runtime log reached `ROUND_RESULT` without Lua errors. The result banner itself was not retained in a frame because the final capture window ended immediately before that transition.
 
@@ -144,8 +144,9 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 
 Next priorities are:
 
-1. complete native visual review of the packaged event-aware camera
-2. keep the accepted engagement offset and HUD behind the existing camera priority rules
-3. configurable teams/loadouts
-4. define and fixture-test procedural close-quarters environment descriptors
-5. longer-duration soak testing for any accepted generated-scene candidate
+1. prove the first attributable camera cut with a telemetry-directed capture: T − 2 s through request, selection, movement, arrival, and T + 3–5 s
+2. observe 3–5 complete rounds for deduplication/retrigger suppression, return/reset behavior, and survivor/end-of-round priority
+3. keep the HUD accepted and the nearby-ally firing aggregation idea deferred as a camera-v2 candidate
+4. configurable teams/loadouts
+5. define and fixture-test procedural close-quarters environment descriptors
+6. longer-duration soak testing for any accepted generated-scene candidate

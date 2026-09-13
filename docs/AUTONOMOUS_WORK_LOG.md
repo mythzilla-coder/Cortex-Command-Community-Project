@@ -264,3 +264,18 @@ A 100-frame native Debug Release capture showed readable HUD placement and the
 transition into round 2; runtime reached `ROUND_RESULT` without Lua errors.
 The result banner was not retained in a captured frame because the window ended
 just before the result transition. Decision: **ACCEPTED_FOR_THIS_REVIEW_BUILD**.
+
+## 2026-09-13 — camera acceptance status correction
+
+The engagement-camera review status is corrected to distinguish visual sanity
+from behavioral acceptance. The 50-frame / approximately 25-second review over
+rounds 28→29 supports **visual sanity: PASS**: combat remained readable over
+uneven terrain, with no sustained empty-terrain fixation or obvious sampled
+oscillation. **Camera behavioral acceptance remains HOLD.** The review did not
+prove an attributable event cut, request-to-arrival timing, return behavior,
+deduplication/retrigger suppression, survivor/end-of-round priority, or 3–5
+complete rounds. Earlier telemetry recorded zero events passing the conservative
+attribution gate, so event selection is still unproven. The next task is the
+first attributable camera-cut capture, using a narrow T − 2 s → request →
+selection → movement → arrival → T + 3–5 s window, followed by 3–5 complete
+rounds. HUD acceptance remains independent and unchanged.

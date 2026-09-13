@@ -85,11 +85,16 @@ Read:
 
 The separate engagement-camera offset follow-up is implemented on PR #284's
 `spectator-random-factions` branch. A focused 50-frame Debug Release capture on
-2026-09-13 produced three `CAMERA_FIRE_CONTROLLER` → `CAMERA_ENGAGEMENT`
-transitions and kept both sides of sampled exchanges readable without sampled
-jitter or empty-terrain lock. Decision for that follow-up is
-`ACCEPTED_FOR_THIS_REVIEW_BUILD`; the older event-aware milestone above remains
-on hold independently.
+2026-09-13 covered approximately 25 seconds across rounds 28→29 and showed
+readable combat, ordinary follow return, no sustained empty-terrain fixation,
+and no obvious sampled jitter. This is **visual sanity: PASS**; **camera
+behavioral acceptance: HOLD**. The capture does not prove attributable event
+cuts, request-to-arrival timing, deduplication/retrigger suppression, return or
+reset behavior, survivor priority, or 3–5 complete rounds. Earlier telemetry
+also recorded zero events passing the conservative attribution gate, so the
+event-selection pipeline remains unproven. The next milestone is a
+telemetry-directed window from T − 2 s through request, selection, movement,
+arrival, and T + 3–5 s, followed by 3–5 complete-round observation.
 
 The next product-facing milestone, the stream-facing HUD overlay, is likewise
 accepted for this review build. It adds Lua-only corner team panels, centered

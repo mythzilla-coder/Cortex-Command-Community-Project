@@ -36,4 +36,8 @@ Implement the approved spectator-camera follow-up in an isolated worktree and ke
 - Reviewed frames kept the firing side, opposing side, and active shot effects readable during combat; no sampled jitter or empty-terrain lock was observed.
 - The camera returned to ordinary follow framing between combat phases, including round transition and regrouping views.
 
-Decision: **ACCEPTED_FOR_THIS_REVIEW_BUILD**. This accepts the engagement-offset behavior for PR #284; the older event-aware camera milestone remains a separate review item.
+Visual sanity: **PASS**. Camera behavioral acceptance: **HOLD**.
+
+This sample supports ordinary watchability only: the camera kept combat readable over uneven terrain, avoided sustained empty-terrain fixation, and showed no obvious sampled oscillation. It does not establish that an attributable event cut occurred, request-to-arrival timing, return behavior, deduplication/retrigger suppression, survivor/end-of-round priority, or acceptance across 3–5 complete rounds. Earlier telemetry also recorded zero events passing the conservative attribution gate, so this visual sample does not validate the event-selection pipeline.
+
+Next milestone: prove the first attributable camera cut with a telemetry-directed capture covering **T − 2 s → request → selection → camera movement → arrival → T + 3–5 s**, then separately observe 3–5 complete rounds for return/reset and survivor behavior. The nearby-ally firing aggregation idea remains deferred as a camera-v2 candidate.
