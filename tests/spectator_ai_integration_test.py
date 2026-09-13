@@ -205,6 +205,13 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertIn("self.CameraEngagementHoldMS", source)
         self.assertIn("self.CameraEngagementCooldownReady", source)
         self.assertIn("self.CameraEngagementCooldownTimer:IsPastSimMS(self.CameraEngagementCooldownMS)", source)
+        self.assertIn("CAMERA_EVENT_DEATH_OBSERVED", source)
+        self.assertIn("CAMERA_EVENT_REMOVAL_UNCONFIRMED", source)
+        self.assertIn("CAMERA_EVENT_ATTRIBUTION_ACCEPTED", source)
+        self.assertIn("CAMERA_EVENT_REQUEST", source)
+        self.assertIn("CAMERA_EVENT_TARGET_ISSUED", source)
+        self.assertIn("CAMERA_EVENT_HOLD_COMPLETE", source)
+        self.assertIn("CAMERA_EVENT_RETURN", source)
         update_body = source[source.index("function SpectatorArena:UpdateCameraDirector"):]
         self.assertLess(
             update_body.index('self:EnterEventMode(cameraEvent)'),
