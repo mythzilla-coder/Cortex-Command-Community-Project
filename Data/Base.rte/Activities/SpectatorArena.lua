@@ -1144,6 +1144,9 @@ function SpectatorArena:StartActivity()
     self.CameraTraceSequence = 0;
     self.CameraEventTraceID = nil;
     self.CameraEventTargetIssued = false;
+    self.CameraEventObservationArrivalTolerance = 24;
+    self.CameraEventObservationMovementThreshold = 1;
+    self.CameraEventObservation = nil;
     self.CameraFocusPosition = self.CameraPos;
     self.CameraFocusScore = 0;
     self.CameraFocusActor = nil;
@@ -2316,6 +2319,7 @@ function SpectatorArena:ReturnToSoldierFollow(team1Actors, team2Actors)
         });
         self.CameraEventTargetIssued = false;
         self.CameraEventTraceID = nil;
+        self.CameraEventObservation = nil;
     end
 end
 
@@ -2346,6 +2350,98 @@ function SpectatorArena:EmitCameraTrace(event, fields)
     fields.round = self.RoundNumber;
     fields.simMS = self.RoundTimer and self.RoundTimer.ElapsedSimTimeMS or 0;
     self.Telemetry.Emit(event, fields);
+end
+
+
+function SpectatorArena:ObserveCameraEventExecution(phase)
+    if not self.CameraEventObservation or not self.CameraEventPosition then
+        return;
+    end
+
+    local screen = self:ScreenOfPlayer(Activity.PLAYER_1);
+    local cameraOffset = CameraMan:GetOffset(screen);
+    local scrollTarget = CameraMan:GetScrollTarget(screen);
+    local targetOffset = self.CameraEventPosition - Vector(
+        FrameMan.PlayerScreenWidth * 0.5,
+        FrameMan.PlayerScreenHeight * 0.5
+    );
+    local distanceToTarget = SceneMan:ShortestDistance(
+        cameraOffset,
+        targetOffset,
+        SceneMan.SceneWrapsX
+    ).Magnitude;
+    local previousOffset = self.CameraEventObservation.previousOffset;
+    local deltaFromPrevious = SceneMan:ShortestDistance(
+        previousOffset,
+        cameraOffset,
+        SceneMan.SceneWrapsX
+    ).Magnitude;
+    local distanceFromPreRequest = SceneMan:ShortestDistance(
+        self.CameraEventObservation.preRequestOffset,
+        cameraOffset,
+        SceneMan.SceneWrapsX
+    ).Magnitude;
+    local movingTowardTarget = distanceToTarget
+        < self.CameraEventObservation.preRequestDistance
+            - self.CameraEventObservationMovementThreshold;
+
+    self.CameraEventObservation.sampleCount =
+        self.CameraEventObservation.sampleCount + 1;
+    self:EmitCameraTrace("CAMERA_EVENT_CAMERA_SAMPLE", {
+        traceID = self.CameraEventObservation.traceID,
+        phase = phase,
+        sample = self.CameraEventObservation.sampleCount,
+        cameraX = cameraOffset.X,
+        cameraY = cameraOffset.Y,
+        scrollTargetX = scrollTarget.X,
+        scrollTargetY = scrollTarget.Y,
+        targetX = self.CameraEventPosition.X,
+        targetY = self.CameraEventPosition.Y,
+        targetOffsetX = targetOffset.X,
+        targetOffsetY = targetOffset.Y,
+        distanceToTarget = distanceToTarget,
+        preRequestDistance = self.CameraEventObservation.preRequestDistance,
+        distanceFromPreRequest = distanceFromPreRequest,
+        deltaFromPrevious = deltaFromPrevious
+    });
+
+    if not self.CameraEventObservation.movementOnsetObserved
+        and deltaFromPrevious >= self.CameraEventObservationMovementThreshold
+        and movingTowardTarget
+    then
+        self.CameraEventObservation.movementOnsetObserved = true;
+        self:EmitCameraTrace("CAMERA_EVENT_MOVEMENT_ONSET", {
+            traceID = self.CameraEventObservation.traceID,
+            phase = phase,
+            cameraX = cameraOffset.X,
+            cameraY = cameraOffset.Y,
+            targetX = self.CameraEventPosition.X,
+            targetY = self.CameraEventPosition.Y,
+            distanceToTarget = distanceToTarget,
+            deltaFromPrevious = deltaFromPrevious
+        });
+    end
+
+    if not self.CameraEventObservation.arrivalObserved
+        and distanceToTarget <= self.CameraEventObservationArrivalTolerance
+    then
+        self.CameraEventObservation.arrivalObserved = true;
+        self:EmitCameraTrace("CAMERA_EVENT_ARRIVED", {
+            traceID = self.CameraEventObservation.traceID,
+            phase = phase,
+            cameraX = cameraOffset.X,
+            cameraY = cameraOffset.Y,
+            targetX = self.CameraEventPosition.X,
+            targetY = self.CameraEventPosition.Y,
+            distanceToTarget = distanceToTarget,
+            arrivalTolerance = self.CameraEventObservationArrivalTolerance
+        });
+    end
+
+    self.CameraEventObservation.previousOffset = Vector(
+        cameraOffset.X,
+        cameraOffset.Y
+    );
 end
 
 
@@ -2695,6 +2791,26 @@ function SpectatorArena:EnterEventMode(event)
     self.CameraFocusPosition = event.position;
     self.CameraHandledVictims[event.id] = true;
     self.CameraEventTargetIssued = false;
+    local screen = self:ScreenOfPlayer(Activity.PLAYER_1);
+    local preRequestOffset = CameraMan:GetOffset(screen);
+    local targetOffset = event.position - Vector(
+        FrameMan.PlayerScreenWidth * 0.5,
+        FrameMan.PlayerScreenHeight * 0.5
+    );
+    local preRequestDistance = SceneMan:ShortestDistance(
+        preRequestOffset,
+        targetOffset,
+        SceneMan.SceneWrapsX
+    ).Magnitude;
+    self.CameraEventObservation = {
+        traceID = self.CameraEventTraceID,
+        preRequestOffset = Vector(preRequestOffset.X, preRequestOffset.Y),
+        previousOffset = Vector(preRequestOffset.X, preRequestOffset.Y),
+        preRequestDistance = preRequestDistance,
+        sampleCount = 0,
+        movementOnsetObserved = false,
+        arrivalObserved = false
+    };
     self.CameraModeTimer:Reset();
     self.CameraEventCooldownTimer:Reset();
     self.CameraEventCooldownReady = false;
@@ -2721,6 +2837,7 @@ function SpectatorArena:ResetCameraDirector()
     self.CameraEngagementPosition = nil;
     self.CameraEngagementEnemy = nil;
     self.CameraEventTargetIssued = false;
+    self.CameraEventObservation = nil;
     self.CameraLastShot = nil;
     self.CameraRoundsFiredByActor = {};
     self.CameraControllerFireByActor = {};
@@ -2929,6 +3046,7 @@ function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
     if self.CameraMode == "CAMERA_EVENT" then
         if not self.CameraEventPosition
             or self.CameraModeTimer:IsPastSimMS(self.CameraEventHoldMS) then
+            self:ObserveCameraEventExecution("HOLD");
             self:EmitCameraTrace("CAMERA_EVENT_HOLD_COMPLETE", {
                 traceID = self.CameraEventTraceID,
                 shooter = self.CameraLastShot and self.CameraLastShot.shooterID or nil,
@@ -2947,6 +3065,7 @@ function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
                 });
             end
             self:SetObservationTarget(self.CameraEventPosition, Activity.PLAYER_1);
+            self:ObserveCameraEventExecution("TARGET");
             return;
         end
     end
