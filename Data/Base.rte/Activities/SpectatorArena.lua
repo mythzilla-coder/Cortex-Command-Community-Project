@@ -1099,6 +1099,12 @@ function SpectatorArena:StartActivity()
     self.CameraEventMinimumAimDot = 0.85;
     self.CameraEventMinimumDistance = 180;
     self.CameraEventMaximumRange = 1200;
+    self.CameraEngagementHoldMS = 900;
+    self.CameraEngagementCooldownMS = 1400;
+    self.CameraEngagementMinimumAimDot = 0.80;
+    self.CameraEngagementMinimumDistance = 300;
+    self.CameraEngagementMaximumRange = 1600;
+    self.CameraEngagementEnemyBias = 0.55;
 
     -- TEMPORARY RAW CAMERA DIAGNOSTIC.
     -- Bypasses normal timing/cooldown policy so selector behavior can be observed.
@@ -1115,17 +1121,23 @@ function SpectatorArena:StartActivity()
     self.CameraPOICooldownTimer = Timer();
     self.CameraRecentFireTimer = Timer();
     self.CameraEventCooldownTimer = Timer();
+    self.CameraEngagementCooldownTimer = Timer();
     self.CameraPOICooldownReady = true;
     self.CameraEventCooldownReady = true;
+    self.CameraEngagementCooldownReady = true;
     self.CameraMode = "CAMERA_CENTER";
     self.CameraFollowActor = nil;
     self.CameraPOIActor = nil;
     self.CameraPOIEnemy = nil;
     self.CameraEventLogic = require("Activities/SpectatorCameraEventLogic");
     self.CameraLastShot = nil;
+    self.CameraRoundsFiredByActor = {};
+    self.CameraControllerFireByActor = {};
     self.CameraTrackedActors = {};
     self.CameraHandledVictims = {};
     self.CameraEventPosition = nil;
+    self.CameraEngagementPosition = nil;
+    self.CameraEngagementEnemy = nil;
     self.CameraFocusPosition = self.CameraPos;
     self.CameraFocusScore = 0;
     self.CameraFocusActor = nil;
@@ -2241,6 +2253,8 @@ function SpectatorArena:ReturnToSoldierFollow(team1Actors, team2Actors)
     end
     self.CameraPOIActor = nil;
     self.CameraPOIEnemy = nil;
+    self.CameraEngagementPosition = nil;
+    self.CameraEngagementEnemy = nil;
     self.CameraFocusScore = 0;
     self.CameraModeTimer:Reset();
     self.CameraEvaluationTimer:Reset();
@@ -2264,26 +2278,145 @@ function SpectatorArena:TrackCameraFire()
         return;
     end
 
+    local actorID = self.CameraFollowActor.UniqueID;
     local equippedItem = self.CameraFollowActor.EquippedItem;
     if not equippedItem or not IsHDFirearm(equippedItem) then
+        local foregroundArm = self.CameraFollowActor.FGArm;
+        local heldDevice = foregroundArm and foregroundArm.HeldDevice;
+        if heldDevice and IsHDFirearm(heldDevice) then
+            equippedItem = heldDevice;
+        else
+            equippedItem = self.CameraFollowActor.EquippedBGItem;
+        end
+    end
+    if not equippedItem or not IsHDFirearm(equippedItem) then
+        local backgroundArm = self.CameraFollowActor.BGArm;
+        local heldDevice = backgroundArm and backgroundArm.HeldDevice;
+        if heldDevice and IsHDFirearm(heldDevice) then
+            equippedItem = heldDevice;
+        end
+    end
+    local controller = self.CameraFollowActor:GetController();
+    local controllerFiring = controller
+        and controller:IsState(Controller.WEAPON_FIRE)
+        or false;
+    local previousControllerFiring = self.CameraControllerFireByActor[actorID];
+    local controllerFireStarted = controllerFiring and previousControllerFiring ~= true;
+    self.CameraControllerFireByActor[actorID] = controllerFiring;
+
+    if not equippedItem or not IsHDFirearm(equippedItem) then
+        if not controllerFireStarted then
+            return;
+        end
+
+        self.CameraLastShot = {
+            shooterID = actorID,
+            shooterTeam = self.CameraFollowActor.Team,
+            originX = self.CameraFollowActor.Pos.X,
+            originY = self.CameraFollowActor.Pos.Y,
+            directionX = Vector(1, 0):RadRotate(self.CameraFollowActor:GetAimAngle(true)).X,
+            directionY = Vector(1, 0):RadRotate(self.CameraFollowActor:GetAimAngle(true)).Y
+        };
+        print("SpectatorArena: CAMERA_FIRE_CONTROLLER shooter=" .. tostring(actorID));
+        self.CameraRecentFireTimer:Reset();
         return;
     end
 
     local firearm = ToHDFirearm(equippedItem);
-    if not firearm.FiredFrame then
+    local roundsFired = firearm.RoundsFired or 0;
+    local previousRoundsFired = self.CameraRoundsFiredByActor[actorID];
+    local roundsAdvanced = previousRoundsFired ~= nil
+        and roundsFired > previousRoundsFired;
+    self.CameraRoundsFiredByActor[actorID] = roundsFired;
+
+    if not firearm.FiredFrame and not roundsAdvanced then
         return;
     end
 
     local aimDirection = Vector(1, 0):RadRotate(self.CameraFollowActor:GetAimAngle(true));
     self.CameraLastShot = {
-        shooterID = self.CameraFollowActor.UniqueID,
+        shooterID = actorID,
         shooterTeam = self.CameraFollowActor.Team,
         originX = firearm.MuzzlePos.X,
         originY = firearm.MuzzlePos.Y,
         directionX = aimDirection.X,
         directionY = aimDirection.Y
     };
+    print("SpectatorArena: CAMERA_FIRE shooter=" .. tostring(actorID));
     self.CameraRecentFireTimer:Reset();
+end
+
+
+function SpectatorArena:FindEngagementTarget(team1Actors, team2Actors)
+    if not self.CameraLastShot then
+        return nil;
+    end
+
+    local enemies = self.CameraLastShot.shooterTeam == self.Team1 and team2Actors or team1Actors;
+    local candidates = {};
+    local shotOrigin = Vector(
+        self.CameraLastShot.originX,
+        self.CameraLastShot.originY
+    );
+
+    for _, actor in ipairs(enemies) do
+        if self:IsCameraAnchorValid(actor) and not actor:IsDead() then
+            local offset = SceneMan:ShortestDistance(
+                shotOrigin,
+                actor.Pos,
+                SceneMan.SceneWrapsX
+            );
+            table.insert(candidates, {
+                id = actor.UniqueID,
+                team = actor.Team,
+                x = shotOrigin.X + offset.X,
+                y = shotOrigin.Y + offset.Y,
+                actor = actor
+            });
+        end
+    end
+
+    local target = self.CameraEventLogic.SelectEngagementTarget(
+        self.CameraLastShot,
+        candidates,
+        self.CameraEngagementMinimumAimDot,
+        self.CameraEngagementMinimumDistance,
+        self.CameraEngagementMaximumRange
+    );
+
+    return target and target.actor or nil;
+end
+
+
+function SpectatorArena:EnterEngagementMode(enemy)
+    if not self:IsCameraAnchorValid(self.CameraFollowActor)
+        or not self:IsCameraAnchorValid(enemy)
+        or not self.CameraLastShot then
+        return;
+    end
+
+    local shooterPosition = self.CameraFollowActor.Pos;
+    local distance = SceneMan:ShortestDistance(
+        shooterPosition,
+        enemy.Pos,
+        SceneMan.SceneWrapsX
+    );
+    local frame = self.CameraEventLogic.CalculateEngagementFrame(
+        { x = shooterPosition.X, y = shooterPosition.Y },
+        {
+            x = shooterPosition.X + distance.X,
+            y = shooterPosition.Y + distance.Y
+        },
+        self.CameraEngagementEnemyBias
+    );
+
+    self.CameraMode = "CAMERA_ENGAGEMENT";
+    self.CameraEngagementPosition = Vector(frame.x, frame.y);
+    self.CameraEngagementEnemy = enemy;
+    self.CameraModeTimer:Reset();
+    self.CameraEngagementCooldownTimer:Reset();
+    self.CameraEngagementCooldownReady = false;
+    print("SpectatorArena: CAMERA_ENGAGEMENT");
 end
 
 
@@ -2392,7 +2525,11 @@ function SpectatorArena:ResetCameraDirector()
     self.CameraPOIActor = nil;
     self.CameraPOIEnemy = nil;
     self.CameraEventPosition = nil;
+    self.CameraEngagementPosition = nil;
+    self.CameraEngagementEnemy = nil;
     self.CameraLastShot = nil;
+    self.CameraRoundsFiredByActor = {};
+    self.CameraControllerFireByActor = {};
     self.CameraTrackedActors = {};
     self.CameraHandledVictims = {};
     self.CameraHasFocus = false;
@@ -2403,8 +2540,10 @@ function SpectatorArena:ResetCameraDirector()
     self.CameraPOICooldownTimer:Reset();
     self.CameraRecentFireTimer:Reset();
     self.CameraEventCooldownTimer:Reset();
+    self.CameraEngagementCooldownTimer:Reset();
     self.CameraPOICooldownReady = true;
     self.CameraEventCooldownReady = true;
+    self.CameraEngagementCooldownReady = true;
 end
 
 
@@ -2560,12 +2699,19 @@ function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
         self.CameraEventCooldownReady = true;
     end
 
+    if not self.CameraEngagementCooldownReady
+        and self.CameraEngagementCooldownTimer:IsPastSimMS(self.CameraEngagementCooldownMS) then
+        self.CameraEngagementCooldownReady = true;
+    end
+
     if self.CameraEventLogic.HasLastSurvivorPriority(#team1Actors, #team2Actors) then
         self.CameraMode = "CAMERA_SOLDIER";
         self.CameraFollowActor = self.CameraEventLogic.SelectLastSurvivor(team1Actors, team2Actors);
         self.CameraPOIActor = nil;
         self.CameraPOIEnemy = nil;
         self.CameraEventPosition = nil;
+        self.CameraEngagementPosition = nil;
+        self.CameraEngagementEnemy = nil;
         if self:IsCameraAnchorValid(self.CameraFollowActor) then
             self:SetObservationTarget(self.CameraFollowActor.Pos, Activity.PLAYER_1);
         end
@@ -2577,6 +2723,13 @@ function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
     local cameraEvent = self:DetectCameraEvent(allTeam1Actors, allTeam2Actors);
     if cameraEvent then
         self:EnterEventMode(cameraEvent);
+    elseif self.CameraMode ~= "CAMERA_EVENT"
+        and self.CameraEngagementCooldownReady
+        and self.CameraRecentFireTimer.ElapsedSimTimeMS <= self.CameraRecentFireWindowMS then
+        local engagementEnemy = self:FindEngagementTarget(team1Actors, team2Actors);
+        if engagementEnemy then
+            self:EnterEngagementMode(engagementEnemy);
+        end
     end
 
     if self.CameraMode == "CAMERA_EVENT" then
@@ -2586,6 +2739,22 @@ function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
             self:ReturnToSoldierFollow(team1Actors, team2Actors);
         else
             self:SetObservationTarget(self.CameraEventPosition, Activity.PLAYER_1);
+            return;
+        end
+    end
+
+    if self.CameraMode == "CAMERA_ENGAGEMENT" then
+        local engagementValid = self.CameraEngagementPosition
+            and self:IsCameraAnchorValid(self.CameraEngagementEnemy)
+            and not self.CameraEngagementEnemy:IsDead();
+
+        if not engagementValid
+            or self.CameraModeTimer:IsPastSimMS(self.CameraEngagementHoldMS) then
+            self.CameraEngagementPosition = nil;
+            self.CameraEngagementEnemy = nil;
+            self:ReturnToSoldierFollow(team1Actors, team2Actors);
+        else
+            self:SetObservationTarget(self.CameraEngagementPosition, Activity.PLAYER_1);
             return;
         end
     end

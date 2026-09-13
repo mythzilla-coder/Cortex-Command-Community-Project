@@ -173,6 +173,38 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         instrumentation_body = source[instrumentation_start:instrumentation_end]
         self.assertIn("self:RecordA1ProgressMarkers()", instrumentation_body)
 
+    def test_camera_engagement_leads_from_followed_shooter_to_enemy(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn("function SpectatorArena:FindEngagementTarget", source)
+        self.assertIn("function SpectatorArena:EnterEngagementMode", source)
+        self.assertIn("self.CameraLastShot.shooterTeam == self.Team1", source)
+        self.assertIn("self.CameraRoundsFiredByActor", source)
+        self.assertIn("self.CameraControllerFireByActor", source)
+        self.assertIn("roundsAdvanced", source)
+        self.assertIn("Controller.WEAPON_FIRE", source)
+        self.assertIn("CAMERA_FIRE_CONTROLLER", source)
+        self.assertIn("foregroundArm.HeldDevice", source)
+        self.assertIn('self.CameraMode = "CAMERA_ENGAGEMENT"', source)
+        self.assertIn("self.CameraEventLogic.SelectEngagementTarget(", source)
+        self.assertIn("self.CameraEventLogic.CalculateEngagementFrame(", source)
+        self.assertIn("self.CameraEngagementPosition", source)
+        self.assertIn("self.CameraEngagementHoldMS", source)
+        self.assertIn("self.CameraEngagementCooldownReady", source)
+        self.assertIn("self.CameraEngagementCooldownTimer:IsPastSimMS(self.CameraEngagementCooldownMS)", source)
+        update_body = source[source.index("function SpectatorArena:UpdateCameraDirector"):]
+        self.assertLess(
+            update_body.index('self:EnterEventMode(cameraEvent)'),
+            update_body.index('self:EnterEngagementMode(engagementEnemy)')
+        )
+        self.assertLess(
+            update_body.index('self:EnterEngagementMode(engagementEnemy)'),
+            update_body.index(
+                'self:SetObservationTarget(self.CameraFollowActor.Pos, Activity.PLAYER_1)',
+                update_body.index('self:EnterEngagementMode(engagementEnemy)')
+            )
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
