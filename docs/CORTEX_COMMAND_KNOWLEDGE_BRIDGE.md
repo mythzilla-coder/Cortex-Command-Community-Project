@@ -91,6 +91,15 @@ jitter or empty-terrain lock. Decision for that follow-up is
 `ACCEPTED_FOR_THIS_REVIEW_BUILD`; the older event-aware milestone above remains
 on hold independently.
 
+The next product-facing milestone, the stream-facing HUD overlay, is likewise
+accepted for this review build. It adds Lua-only corner team panels, centered
+round/time and combat-pressure text, and the existing result banner, without
+changing camera or AI behavior. A 100-frame native capture showed readable HUD
+placement and the runtime log reached `ROUND_RESULT` without Lua errors; the
+result banner was not retained in a frame because the capture ended just before
+that transition. The nearby-ally firing aggregation suggestion is recorded as
+a future camera-v2 candidate, not an active tracking-system task.
+
 ## Observability state
 
 The telemetry helper and Python soak parser are implemented and unit-tested. Root-cause review found that Lua `print` is routed into the in-memory `ConsoleMan` buffer, while `LogConsole.txt` is written only during orderly `ConsoleMan::Destroy()`. The activity now snapshots the console buffer to ignored `SPECTATOR_EVENT_LOG.txt` after telemetry events. A fresh smoke run produced the expected records; a longer soak is still needed for completed-round statistics.

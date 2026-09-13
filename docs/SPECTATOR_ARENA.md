@@ -130,6 +130,8 @@ The round reset removes surviving team actors without creating artificial gibs, 
 
 The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. Its required helper module and pure test are now packaged with the activity so a clean checkout is self-contained. The source was rebuilt as `Debug Release|x64` with zero build errors. The separate engagement-offset follow-up was visually reviewed in an isolated Debug Release capture on 2026-09-13: 50 frames, three `CAMERA_FIRE_CONTROLLER` → `CAMERA_ENGAGEMENT` transitions, readable opposing combatants, ordinary follow return, and no sampled jitter or empty-terrain lock. The engagement-offset behavior is **ACCEPTED_FOR_THIS_REVIEW_BUILD**. The older event-aware off-screen cut, deduplication, and last-survivor acceptance milestone remains **HOLD_FOR_VISUAL_ACCEPTANCE**.
 
+The stream-facing HUD follow-up is also **ACCEPTED_FOR_THIS_REVIEW_BUILD**. It uses Lua-only screen primitives for upper-corner team panels, a centered round/time header, combat pressure, and the existing centered result banner. A 100-frame native capture showed readable battle HUD placement and the transition into round 2; the runtime log reached `ROUND_RESULT` without Lua errors. The result banner itself was not retained in a frame because the final capture window ended immediately before that transition.
+
 The last pre-checkpoint source milestone remains `48bf4c8e9` (`chore: ignore local dependency and Python cache artifacts`). The camera dependency packaging and this acceptance decision are separate from visual behavior acceptance. The existing deterministic short-timeout watchdog evidence and historical soak checkpoint remain unchanged.
 
 The runtime still emits an empty-scene-preset warning before successfully loading `Ketanot Hills`, plus repeated sound-device initialization warnings. These are known warnings and are separate from the Lua lifecycle changes. The historical checkpoint/tag `spectator-soak-2026-08-31` remains unchanged.
@@ -143,8 +145,7 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 Next priorities are:
 
 1. complete native visual review of the packaged event-aware camera
-2. keep the accepted engagement offset behind the existing camera priority rules
-3. stream-facing HUD only after the remaining camera review is resolved
-4. configurable teams/loadouts
-5. define and fixture-test procedural close-quarters environment descriptors
-6. longer-duration soak testing for any accepted generated-scene candidate
+2. keep the accepted engagement offset and HUD behind the existing camera priority rules
+3. configurable teams/loadouts
+4. define and fixture-test procedural close-quarters environment descriptors
+5. longer-duration soak testing for any accepted generated-scene candidate

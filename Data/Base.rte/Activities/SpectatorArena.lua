@@ -1142,6 +1142,7 @@ function SpectatorArena:StartActivity()
     self.CameraFocusScore = 0;
     self.CameraFocusActor = nil;
     self.CameraHasFocus = false;
+    self.HUDLogic = require("Activities/SpectatorHUDLogic");
 
     self:SetPlayerBrain(nil, Activity.PLAYER_1);
     self:SetTeamOfPlayer(Activity.PLAYER_1, self.SpectatorTeam);
@@ -1860,6 +1861,45 @@ function SpectatorArena:UpdateAIInstrumentation(team1Actors, team2Actors)
     self:RecordA1ProgressMarkers()
 end
 
+function SpectatorArena:DrawSpectatorHUD(hud)
+    local screen = self:ScreenOfPlayer(Activity.PLAYER_1);
+    local screenWidth = FrameMan.PlayerScreenWidth;
+    local centerX = math.floor(screenWidth * 0.5);
+    local cameraOffset = CameraMan:GetOffset(screen);
+
+    PrimitiveMan:DrawTextPrimitive(
+        screen,
+        cameraOffset + Vector(12, 28),
+        hud.team1,
+        true,
+        0
+    );
+    PrimitiveMan:DrawTextPrimitive(
+        screen,
+        cameraOffset + Vector(screenWidth - 12, 28),
+        hud.team2,
+        true,
+        2
+    );
+    PrimitiveMan:DrawTextPrimitive(
+        screen,
+        cameraOffset + Vector(centerX, 12),
+        hud.header,
+        true,
+        1
+    );
+
+    if hud.pressure then
+        PrimitiveMan:DrawTextPrimitive(
+            screen,
+            cameraOffset + Vector(centerX, 25),
+            hud.pressure,
+            true,
+            1
+        );
+    end
+end
+
 function SpectatorArena:UpdateActivity()
     if self.ArenaSpawnInProgress
         and not self.ArenaSpawnTracePersisted
@@ -1980,17 +2020,26 @@ function SpectatorArena:UpdateActivity()
     self:TracePostSpawnBoundary("AFTER_AI_INSTRUMENTATION")
 
     if self.RoundOver then
+        local resultHUD = self.HUDLogic.BuildResultHUD(
+            self.RoundNumber,
+            self.Team1Faction,
+            team1Alive,
+            self.Team1Score,
+            self.Team2Faction,
+            team2Alive,
+            self.Team2Score
+        );
+        self:DrawSpectatorHUD(resultHUD);
         FrameMan:SetScreenText(
-            self.RoundResultText ..
-            " | SCORE " ..
-            tostring(self.Team1Score) ..
-            " - " ..
-            tostring(self.Team2Score) ..
-            " | NEXT ROUND...",
+            self.HUDLogic.BuildResultText(
+                self.RoundResultText,
+                self.Team1Score,
+                self.Team2Score
+            ),
             self:ScreenOfPlayer(Activity.PLAYER_1),
             0,
             -1,
-            false
+            true
         );
 
         if self.RoundEndTimer:IsPastSimMS(self.RoundEndDelay) then
@@ -2050,26 +2099,21 @@ function SpectatorArena:UpdateActivity()
             pressureThresholdForHUD / 1000
         );
 
-    FrameMan:SetScreenText(
-        "ROUND " .. tostring(self.RoundNumber) ..
-        " | TIME " .. elapsedRoundText ..
-        " | HUNT " ..
-        tostring(pressureElapsedSeconds) ..
-        "/" ..
-        tostring(pressureThresholdSeconds) ..
-        " | " .. string.upper(team1FactionName) ..
-        " " .. tostring(team1Alive) ..
-        " vs " ..
-        string.upper(team2FactionName) ..
-        " " .. tostring(team2Alive) ..
-        " | SCORE " ..
-        tostring(self.Team1Score) ..
-        " - " ..
-        tostring(self.Team2Score),
-        self:ScreenOfPlayer(Activity.PLAYER_1),
-        0,
-        -1,
-        false
+    local spectatorScreen = self:ScreenOfPlayer(Activity.PLAYER_1);
+    FrameMan:ClearScreenText(spectatorScreen);
+    self:DrawSpectatorHUD(
+        self.HUDLogic.BuildBattleHUD(
+            self.RoundNumber,
+            elapsedRoundText,
+            pressureElapsedSeconds,
+            pressureThresholdSeconds,
+            team1FactionName,
+            team1Alive,
+            self.Team1Score,
+            team2FactionName,
+            team2Alive,
+            self.Team2Score
+        )
     );
 
 

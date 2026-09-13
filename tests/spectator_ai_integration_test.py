@@ -178,6 +178,19 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
 
         self.assertIn("function SpectatorArena:FindEngagementTarget", source)
         self.assertIn("function SpectatorArena:EnterEngagementMode", source)
+
+    def test_spectator_hud_uses_screen_primitives_and_preserves_result_banner(self):
+        source = ACTIVITY.read_text(encoding="utf-8")
+
+        self.assertIn('self.HUDLogic = require("Activities/SpectatorHUDLogic")', source)
+        self.assertIn("function SpectatorArena:DrawSpectatorHUD", source)
+        self.assertIn("PrimitiveMan:DrawTextPrimitive", source)
+        self.assertIn("local cameraOffset = CameraMan:GetOffset(screen)", source)
+        self.assertIn("cameraOffset + Vector(12, 28)", source)
+        self.assertIn("FrameMan:ClearScreenText(spectatorScreen)", source)
+        self.assertIn("self.HUDLogic.BuildBattleHUD", source)
+        self.assertIn("self.HUDLogic.BuildResultHUD", source)
+        self.assertIn("self.HUDLogic.BuildResultText", source)
         self.assertIn("self.CameraLastShot.shooterTeam == self.Team1", source)
         self.assertIn("self.CameraRoundsFiredByActor", source)
         self.assertIn("self.CameraControllerFireByActor", source)

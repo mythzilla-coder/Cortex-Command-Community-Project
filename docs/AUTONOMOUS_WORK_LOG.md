@@ -248,3 +248,19 @@ See docs/SPECTATOR_IMPLEMENTATION_STATUS_2026-09-05.md. New implementation is in
 Implemented the approved spectator-camera follow-up in an isolated worktree. The director now biases the camera toward the enemy in the followed actor's firing direction for a short, cooldown-gated engagement frame while preserving event/death and last-survivor priority. The implementation uses native firearm signals when available and a rising `Controller.WEAPON_FIRE` edge as a guarded fallback for the live actor-wrapper attachment mismatch.
 
 Verification passed: pure Lua camera tests, controller Lua tests, 10-test Python integration suite, Lua load checks, `git diff --check`, and native `Debug Release|x64` build with zero errors. A focused 50-frame Debug Release capture from the isolated worktree produced three `CAMERA_FIRE_CONTROLLER` followed by `CAMERA_ENGAGEMENT` transitions. Reviewed frames kept the firing side and opposing side readable, showed normal follow return, and showed no sampled jitter or empty-terrain lock. Engagement-offset decision: **ACCEPTED_FOR_THIS_REVIEW_BUILD**. The older event-aware camera milestone remains separately held; this was a local frame capture, not an MP4 screen recording.
+
+## 2026-09-13 — stream HUD overlay
+
+Implemented the approved Lua-only stream HUD in the isolated worktree. The
+overlay places team/alive/score panels in the upper corners, round/time and
+combat pressure at center top, and keeps the centered winner/result banner for
+round transitions. The camera and AI behavior are unchanged. The nearby-ally
+fire aggregation idea is recorded as a future camera-v2 candidate rather than
+expanded into a battlefield-wide tracking system.
+
+Verification passed: HUD formatter test, 11-test Python integration suite,
+camera event test, AI controller test, Lua load checks, and `git diff --check`.
+A 100-frame native Debug Release capture showed readable HUD placement and the
+transition into round 2; runtime reached `ROUND_RESULT` without Lua errors.
+The result banner was not retained in a captured frame because the window ended
+just before the result transition. Decision: **ACCEPTED_FOR_THIS_REVIEW_BUILD**.
