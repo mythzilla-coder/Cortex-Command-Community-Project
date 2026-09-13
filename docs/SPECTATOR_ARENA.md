@@ -136,6 +136,19 @@ The last pre-checkpoint source milestone remains `48bf4c8e9` (`chore: ignore loc
 
 The runtime still emits an empty-scene-preset warning before successfully loading `Ketanot Hills`, plus repeated sound-device initialization warnings. These are known warnings and are separate from the Lua lifecycle changes. The historical checkpoint/tag `spectator-soak-2026-08-31` remains unchanged.
 
+### Native lifecycle boundary — 2026-09-13
+
+Source inspection confirms that `g_ActivityMan.Update()` runs before
+`g_MovableMan.Update()` in `Source/Main.cpp`. Native actor update changes an
+actor to `DYING` at health `<= 0`, later changes it to `DEAD`, and the following
+MovableMan pass moves dead actors out of the live list and team rosters. Lua
+exposes `Status`, `Health`, `PrevHealth`, `IsDead()`, and the `DYING`/`DEAD`
+values, so `DYING` is the last authoritative in-roster signal available to the
+activity. The runtime trace and source ordering therefore identify lifecycle
+observability—not camera presentation—as the primary blocker. The next test is
+to correlate `DYING` under the existing conservative attribution gates; no gate
+widening or camera-v2 ally tracking is authorized by this checkpoint.
+
 Recent live verification also reached `BATTLE` but produced no `SPECTATOR_EVENT` records in `LogConsole.txt`; the telemetry helper passes standalone tests, but live telemetry transport/module resolution remains unresolved.
 
 ## Rollback and next milestones
@@ -144,7 +157,7 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 
 Next priorities are:
 
-1. resolve the actor-removal/death-observation boundary in diagnostic-only scope without loosening attribution gates
+1. test the Lua-visible `DYING` transition as the authoritative in-roster death signal without loosening attribution gates
 2. prove the first attributable camera cut with a telemetry-directed capture: T − 2 s through request, selection, movement, arrival, and T + 3–5 s
 3. observe 3–5 complete rounds for deduplication/retrigger suppression, return/reset behavior, and survivor/end-of-round priority
 4. keep the HUD accepted and the nearby-ally firing aggregation idea deferred as a camera-v2 candidate

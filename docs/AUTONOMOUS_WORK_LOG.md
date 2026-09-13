@@ -293,6 +293,11 @@ acceptance claim is made.
 
 Finding: the actor roster can remove a victim before the camera observes a
 live→dead transition, and the observed removals were outside or near the end
-of the 400 ms attribution window. The next task is a diagnostic-only fix or
-instrumentation at that boundary, followed by the same narrow end-to-end
-capture. Attribution gates and camera-v2 ally tracking remain unchanged.
+of the 400 ms attribution window. Native source inspection confirms that the
+activity update runs before the MovableMan update; actors enter `DYING` at
+health `<= 0`, then become `DEAD` and are removed from the live actor list and
+team rosters in the manager pass. Lua exposes `Status`, `Health`, `PrevHealth`,
+and the `DYING`/`DEAD` values, so `DYING` is the last authoritative in-roster
+signal. The next task is to test that signal diagnostically under the existing
+attribution gates, followed by the same narrow end-to-end capture. Attribution
+gates and camera-v2 ally tracking remain unchanged.

@@ -51,3 +51,25 @@ Review-only trace markers were added for observed fire, actor removal, attributi
 - The rendered sample remained visually sane, but no attributable camera cut occurred and therefore no end-to-end visual verification is claimed.
 
 Finding: the live actor roster can remove a victim before the camera observes a live→dead transition. Several unconfirmed removals were also outside the 400 ms attribution window. The next task is to resolve this death-observation boundary in diagnostic-only scope and then repeat the same narrow capture. Do not loosen attribution gates or add camera-v2 tracking before that proof exists.
+
+## Native lifecycle root-cause investigation — 2026-09-13
+
+The native source confirms the observation boundary. `Source/Main.cpp` calls
+`g_ActivityMan.Update()` before `g_MovableMan.Update()` each frame. During the
+native actor update, `Actor.cpp` changes an actor to `DYING` when health reaches
+zero or below; after the death timer expires it changes the actor to `DEAD`.
+The subsequent `MovableMan.cpp` pass partitions dead actors into particles,
+removes them from team rosters, and erases them from the live actor list.
+
+Lua exposes `Actor.Status`, `Actor.Health`, `Actor.PrevHealth`, `Actor.IsDead()`,
+and the `DYING`/`DEAD` status values, but the activity update cannot reliably
+observe `DEAD` while the actor is still in `MovableMan.Actors`. Therefore the
+last authoritative in-roster lifecycle signal is the transition to `DYING`,
+with health and previous health available for correlation. This confirms the
+runtime evidence without changing camera behavior or attribution policy.
+
+Next hypothesis: test the Lua-visible `DYING` transition as death evidence
+under the existing single-victim, shooter-identity, aim-cone, distance, and
+400 ms gates. No implementation or acceptance claim is made by this finding;
+the next change must remain diagnostic-only until one end-to-end attributable
+cut is proven.

@@ -104,8 +104,13 @@ target issuances. The rendered sample stayed visually sane, but no attributable
 cut occurred. The current diagnostic finding is an actor-removal/death-
 observation boundary: victims can leave the live roster before a live→dead
 transition is visible, and several removals were already outside the 400 ms
-window. Next action is to resolve that boundary in diagnostic-only scope; do
-not loosen the conservative gate or add camera-v2 tracking yet.
+window. Native source inspection now explains the boundary: the activity update
+runs before the MovableMan update, actors enter `DYING` when health reaches zero,
+and dead actors are then removed from the live actor list and team rosters in
+the manager pass. Lua exposes `Status`, `Health`, `PrevHealth`, and the
+`DYING`/`DEAD` values, making `DYING` the last authoritative in-roster signal.
+Next action is to test that signal under the existing conservative gate; do not
+loosen the gate or add camera-v2 tracking yet.
 
 The next product-facing milestone, the stream-facing HUD overlay, is likewise
 accepted for this review build. It adds Lua-only corner team panels, centered
