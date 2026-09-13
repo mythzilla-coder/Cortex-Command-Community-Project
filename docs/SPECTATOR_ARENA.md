@@ -149,6 +149,19 @@ observability—not camera presentation—as the primary blocker. The next test 
 to correlate `DYING` under the existing conservative attribution gates; no gate
 widening or camera-v2 ally tracking is authorized by this checkpoint.
 
+### DYING-edge runtime experiment — 2026-09-13
+
+The first diagnostic runtime experiment observed the repaired lifecycle seam:
+44 followed-shooter fire observations produced 11 one-shot
+`CAMERA_EVENT_DYING_OBSERVED` records across an approximately 90-second native
+run. Nine candidates were rejected by the unchanged attribution policy (seven
+`STALE_SHOT`, two `DISTANCE`); three unrelated removals remained
+`CAMERA_EVENT_REMOVAL_UNCONFIRMED`. No attribution accept, camera request,
+target issuance, hold completion, or return occurred. This is **lifecycle
+observation PASS**, not camera behavioral acceptance; the camera remains
+**HOLD** pending one naturally accepted correlated event. Rendered frames were
+reviewed for sanity only and remained readable.
+
 Recent live verification also reached `BATTLE` but produced no `SPECTATOR_EVENT` records in `LogConsole.txt`; the telemetry helper passes standalone tests, but live telemetry transport/module resolution remains unresolved.
 
 ## Rollback and next milestones

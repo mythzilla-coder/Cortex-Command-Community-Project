@@ -73,3 +73,30 @@ under the existing single-victim, shooter-identity, aim-cone, distance, and
 400 ms gates. No implementation or acceptance claim is made by this finding;
 the next change must remain diagnostic-only until one end-to-end attributable
 cut is proven.
+
+## DYING-edge experiment — 2026-09-13
+
+The diagnostic experiment replaced the prior live-to-DEAD/removal candidate
+with a one-shot Lua-visible `DYING` edge. Trace correlation was added with a
+monotonic `traceID`; the shooter, victim lifecycle, attribution, request,
+target, hold, and return markers use that ID. The existing shooter identity,
+single-victim, opposing-team, aim-cone, distance, recency, cooldown, priority,
+and camera behavior were left unchanged.
+
+- Implementation checkpoint: `09a242eec`.
+- Native run: 90 rendered frames over approximately 90 seconds; orderly exit;
+  two round results were recorded and the next round began.
+- Trace counts: 44 `CAMERA_FIRE_OBSERVED`, 11
+  `CAMERA_EVENT_DYING_OBSERVED`, 3 `CAMERA_EVENT_REMOVAL_UNCONFIRMED`, 9
+  `CAMERA_EVENT_ATTRIBUTION_REJECTED`, and zero attribution accepts, requests,
+  target issuances, hold completions, or returns.
+- Rejection reasons: 7 `STALE_SHOT` and 2 `DISTANCE`. No 400 ms widening was
+  applied.
+- Representative rendered frames remained readable, but no event-camera
+  movement was claimed because no attribution was accepted.
+
+Status: **DEATH-OBSERVATION ROOT CAUSE PASS** and **DYING OBSERVATION PASS**;
+**DYING ATTRIBUTION ACCEPTANCE UNPROVEN**; **CAMERA BEHAVIORAL ACCEPTANCE
+HOLD**. The lifecycle seam is repaired for observation, while the unchanged
+classifier still needs a naturally accepted candidate before camera-event
+behavior can be accepted.

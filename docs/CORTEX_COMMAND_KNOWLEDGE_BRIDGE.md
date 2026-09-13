@@ -112,6 +112,15 @@ the manager pass. Lua exposes `Status`, `Health`, `PrevHealth`, and the
 Next action is to test that signal under the existing conservative gate; do not
 loosen the gate or add camera-v2 tracking yet.
 
+The first DYING-edge experiment confirmed the seam in native runtime: 44 fire
+observations yielded 11 `CAMERA_EVENT_DYING_OBSERVED` records across an
+approximately 90-second run. Nine candidates were rejected by the unchanged
+classifier—seven `STALE_SHOT` and two `DISTANCE`—with zero attribution accepts,
+requests, target issuances, hold completions, or returns. This closes the
+lifecycle-observation subproblem but leaves DYING attribution acceptance and
+camera behavioral acceptance on HOLD. Do not widen 400 ms or add nearby-ally
+tracking; the next proof remains one naturally accepted correlated event.
+
 The next product-facing milestone, the stream-facing HUD overlay, is likewise
 accepted for this review build. It adds Lua-only corner team panels, centered
 round/time and combat-pressure text, and the existing result banner, without

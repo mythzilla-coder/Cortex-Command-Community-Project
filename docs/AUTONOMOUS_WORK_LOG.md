@@ -301,3 +301,22 @@ and the `DYING`/`DEAD` values, so `DYING` is the last authoritative in-roster
 signal. The next task is to test that signal diagnostically under the existing
 attribution gates, followed by the same narrow end-to-end capture. Attribution
 gates and camera-v2 ally tracking remain unchanged.
+
+## 2026-09-13 — DYING-edge attribution experiment
+
+The diagnostic-only change moved camera victim lifecycle observation from
+live-to-DEAD/removal detection to a one-shot Lua-visible `DYING` edge and added
+monotonic `traceID` correlation across the camera trace. The unchanged native
+run produced 44 `CAMERA_FIRE_OBSERVED`, 11
+`CAMERA_EVENT_DYING_OBSERVED`, 3 `CAMERA_EVENT_REMOVAL_UNCONFIRMED`, and 9
+`CAMERA_EVENT_ATTRIBUTION_REJECTED` records. Rejections were seven
+`STALE_SHOT` and two `DISTANCE`; there were zero accepts, requests, target
+issuances, hold completions, or returns. The 90-second rendered sample stayed
+visually readable, but no event-camera movement was claimed.
+
+Decision: **DEATH-OBSERVATION ROOT CAUSE PASS** and **DYING OBSERVATION PASS**;
+**DYING AS ATTRIBUTION EVIDENCE NOT YET ACCEPTED**; camera behavioral
+acceptance remains **HOLD**. Keep the 400 ms window and all existing gates
+unchanged, and keep camera-v2 ally tracking deferred. Next proof is one
+naturally accepted correlated event followed by the T−2 s → T+3–5 s frame
+review.

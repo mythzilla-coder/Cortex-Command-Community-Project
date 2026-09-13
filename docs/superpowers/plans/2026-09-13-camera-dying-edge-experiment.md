@@ -30,7 +30,7 @@
 - Consumes: Existing `CameraEventLogic.HasObservedDeath` and `SelectEventCandidate` contracts.
 - Produces: Expected `CameraEventLogic.HasObservedDying(previousStatus, currentStatus)` behavior and trace-marker/source assertions for `CAMERA_EVENT_DYING_OBSERVED` and `traceID`.
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Add these assertions to `tests/spectator_camera_event_test.lua` using the
 engine's `Actor.Status` enum values (`STABLE = 0`, `DYING = 3`, `DEAD = 4`):
@@ -55,11 +55,11 @@ assertEqual(
 
 Extend the integration source checks to require `CAMERA_EVENT_DYING_OBSERVED`, `traceID`, and rejection strings `STALE_SHOT`, `SHOOTER_MISMATCH`, `NO_CANDIDATE`, `AIM_CONE`, `DISTANCE`, and `MULTIPLE_VICTIMS`.
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run the repository's Lua camera-event test and the focused Python integration test. Expected result: the Lua test fails because `HasObservedDying` is not defined, and the Python test fails because the new marker/reason strings are absent.
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 Do not commit this red test-only state; continue directly to Task 2 after recording the expected failures.
 
@@ -73,27 +73,27 @@ Do not commit this red test-only state; continue directly to Task 2 after record
 - Consumes: Actor `Status`, `Health`, `PrevHealth`, and `UniqueID`; existing shot and attribution structures.
 - Produces: `HasObservedDying(previousStatus, currentStatus)`, one `CAMERA_EVENT_DYING_OBSERVED` per new edge, unchanged event selection gates, explicit attribution rejection reason, and one `traceID` carried through the camera event lifecycle.
 
-- [ ] **Step 1: Add the pure failing behavior's minimal implementation**
+- [x] **Step 1: Add the pure failing behavior's minimal implementation**
 
 Implement `HasObservedDying` as `previousStatus ~= Actor.DYING and currentStatus == Actor.DYING`. Extend candidate evaluation only enough to return a reason alongside a nil selection; do not alter the existing aim, range, recency, team, or single-candidate decisions.
 
-- [ ] **Step 2: Add trace correlation at fire creation**
+- [x] **Step 2: Add trace correlation at fire creation**
 
 Initialize `self.CameraTraceSequence = 0`. Increment it whenever `CameraLastShot` is created and store the value as `traceID`. Update `EmitCameraTrace` to default `fields.traceID` from `CameraLastShot.traceID` when the caller does not provide one.
 
-- [ ] **Step 3: Replace the lifecycle observation point**
+- [x] **Step 3: Replace the lifecycle observation point**
 
 Store `status`, `health`, `prevHealth`, and position in each tracked actor record. During `DetectCameraEvent`, recognize only a transition to `Actor.DYING` as the new lifecycle candidate. Emit `CAMERA_EVENT_DYING_OBSERVED` with `traceID`, shooter, victim, victim team, health, previous health, position, and shot age. Keep removal logging diagnostic-only and do not treat an unobserved removal as a candidate.
 
-- [ ] **Step 4: Preserve downstream camera behavior**
+- [x] **Step 4: Preserve downstream camera behavior**
 
 Pass DYING candidates through the existing `SelectEventCandidate` gates. Emit `CAMERA_EVENT_ATTRIBUTION_ACCEPTED` or `CAMERA_EVENT_ATTRIBUTION_REJECTED` with the same existing fields plus `traceID` and `reason`; keep `EnterEventMode`, target issuance, hold, return, cooldown, and priority code unchanged except for passing the accepted event's trace ID to downstream markers.
 
-- [ ] **Step 5: Run the focused tests**
+- [x] **Step 5: Run the focused tests**
 
 Run the Lua camera-event test, Lua controller test, Python integration suite, and `git diff --check`. Expected result: all tests pass and the only source changes are the lifecycle/diagnostic experiment plus its tests.
 
-- [ ] **Step 6: Commit the implementation**
+- [x] **Step 6: Commit the implementation**
 
 ```powershell
 git add tests/spectator_camera_event_test.lua tests/spectator_ai_integration_test.py Data/Base.rte/Activities/SpectatorCameraEventLogic.lua Data/Base.rte/Activities/SpectatorArena.lua
@@ -110,19 +110,19 @@ git commit -m "test: observe camera victim DYING edges"
 - Consumes: Debug Release executable and the Task 2 diagnostic build.
 - Produces: Counts and one correlated trace chain, or evidence that DYING is observed while attribution remains rejected.
 
-- [ ] **Step 1: Launch the existing direct Arena runtime**
+- [x] **Step 1: Launch the existing direct Arena runtime**
 
 Use the already verified Debug Release launch path without changing startup settings, AI mode, map, team size, or camera parameters.
 
-- [ ] **Step 2: Capture trace and rendered-frame evidence**
+- [x] **Step 2: Capture trace and rendered-frame evidence**
 
 Capture approximately 25–60 seconds at the established frame size/rate and retain the trace log. Do not use the failed second-capture procedure or terminate the game in a way that discards buffered logs; use orderly shutdown.
 
-- [ ] **Step 3: Correlate the result**
+- [x] **Step 3: Correlate the result**
 
 Search for `traceID` and verify whether any sequence reaches `FIRE_OBSERVED → DYING_OBSERVED → ATTRIBUTION_ACCEPTED → CAMERA_EVENT_REQUEST → CAMERA_EVENT_TARGET_ISSUED → CAMERA_EVENT_HOLD_COMPLETE → CAMERA_EVENT_RETURN`. If no accept occurs, report DYING count and rejection-reason counts without loosening any gate.
 
-- [ ] **Step 4: Review frames only around a correlated event**
+- [x] **Step 4: Review frames only around a correlated event**
 
 If an accepted event exists, inspect frames from approximately T−2 seconds through T+3–5 seconds and verify movement, arrival, hold, and return. If no accepted event exists, record that visual behavioral acceptance remains HOLD.
 
@@ -138,11 +138,11 @@ If an accepted event exists, inspect frames from approximately T−2 seconds thr
 - Consumes: Task 2 commit hash, Task 3 trace counts, rendered capture result, and rejection reasons.
 - Produces: A source-grounded experiment record that distinguishes lifecycle-observation PASS from DYING attribution acceptance and camera behavioral acceptance.
 
-- [ ] **Step 1: Record the experiment outcome locally**
+- [x] **Step 1: Record the experiment outcome locally**
 
 State the exact commit, runtime duration, DYING count, accepted/rejected counts, reason counts, and whether the full correlated chain was observed. Preserve the existing HOLD language when no full chain is proven.
 
-- [ ] **Step 2: Run final verification**
+- [x] **Step 2: Run final verification**
 
 Run the focused tests, Python integration suite, `git diff --check`, and `git status --short`; confirm runtime artifacts remain untracked.
 
