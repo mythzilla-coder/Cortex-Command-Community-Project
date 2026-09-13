@@ -94,6 +94,24 @@ The engine exposes no direct killer or instigator field to this activity. The im
 
 An accepted event holds the victim's last meaningful position for `2000` ms and starts a `4000` ms event cooldown. The prior soldier reference is retained and reused if still alive; otherwise a new living soldier is selected. Handled victim IDs, tracked actor state, shot context, event state, and cooldown state are cleared between rounds. One event can therefore produce at most one response per round. This is intentionally a high-miss/low-false-positive approximation: kills removed before a death state can be observed may receive no cut.
 
+### Engagement camera offset — review build
+
+When the followed actor begins a firing action, the director searches the
+opposing living roster for the nearest actor in the shot direction. If the
+target is at least `300` pixels away and within `1600` pixels and the aim dot
+is at least `0.80`, the observation target moves to a frame interpolated `55%`
+toward that enemy. The engagement frame holds for `900` ms, then returns to
+normal soldier follow; a `1400` ms cooldown prevents repeated oscillation.
+Death/event framing keeps priority over this short presentation cue.
+
+The detector prefers the native `HDFirearm.FiredFrame`/`RoundsFired` signals
+and can fall back to a rising `Controller.WEAPON_FIRE` edge when the live
+actor wrapper exposes no firearm. The fallback uses the actor position and aim
+angle, and remains gated by the same opposing-target cone and distance checks.
+Pure selection/frame tests and a native Debug Release smoke run passed; visual
+acceptance still requires a longer targeted capture of several deliberate
+opposite-edge exchanges.
+
 ## Winner and score logic
 
 The first team with no living actors loses. If both teams are eliminated, the result is a draw. `RoundOver` prevents duplicate results, score increments, or reset operations. The score remains cumulative for the life of the activity.

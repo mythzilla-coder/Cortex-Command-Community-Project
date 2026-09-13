@@ -120,4 +120,44 @@ assertEqual(CameraEventLogic.HasObservedDeath(true, false, false), true, "remova
 assertEqual(CameraEventLogic.HasObservedDeath(false, false, false), false, "unexplained removal is not death evidence")
 assertEqual(CameraEventLogic.HasObservedDeath(false, true, false), false, "a living actor is not a death event")
 
+local engagementShot = {
+    shooterTeam = 1,
+    originX = 100,
+    originY = 100,
+    directionX = 1,
+    directionY = 0
+}
+
+local engagementTarget = CameraEventLogic.SelectEngagementTarget(
+    engagementShot,
+    {
+        { id = 21, team = 2, x = 900, y = 120 },
+        { id = 22, team = 2, x = -300, y = 100 },
+        { id = 23, team = 1, x = 700, y = 100 }
+    },
+    0.8,
+    300,
+    1200
+)
+assertEqual(engagementTarget.id, 21, "engagement framing selects the enemy in the firing direction")
+
+engagementTarget = CameraEventLogic.SelectEngagementTarget(
+    engagementShot,
+    {
+        { id = 24, team = 2, x = 180, y = 250 }
+    },
+    0.8,
+    300,
+    1200
+)
+assertEqual(engagementTarget, nil, "engagement framing ignores near targets")
+
+local frame = CameraEventLogic.CalculateEngagementFrame(
+    { x = 100, y = 100 },
+    { x = 900, y = 300 },
+    0.55
+)
+assertEqual(frame.x, 540, "engagement frame biases the camera toward the enemy")
+assertEqual(frame.y, 210, "engagement frame preserves the line between actors")
+
 print("spectator_camera_event_test: PASS")
