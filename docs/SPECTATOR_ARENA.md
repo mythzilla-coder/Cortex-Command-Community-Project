@@ -128,7 +128,7 @@ The round reset removes surviving team actors without creating artificial gibs, 
 
 ## Verification and known issues
 
-The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. Its required helper module and pure test are now packaged with the activity so a clean checkout is self-contained. The source was rebuilt as `Debug Release|x64` with zero build errors. A short native screen capture reviewed on 2026-09-13 showed generally action-centered hill/valley framing without a sustained empty-terrain lock, but it did not establish an attributed off-screen event cut, deduplication, return timing, last-survivor priority, or the required 3–5 complete rounds. Visual acceptance remains **HOLD_FOR_VISUAL_ACCEPTANCE**; the camera behavior is not yet accepted or complete.
+The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. Its required helper module and pure test are now packaged with the activity so a clean checkout is self-contained. The source was rebuilt as `Debug Release|x64` with zero build errors. The separate engagement-offset follow-up was visually reviewed in an isolated Debug Release capture on 2026-09-13: 50 frames, three `CAMERA_FIRE_CONTROLLER` → `CAMERA_ENGAGEMENT` transitions, readable opposing combatants, ordinary follow return, and no sampled jitter or empty-terrain lock. The engagement-offset behavior is **ACCEPTED_FOR_THIS_REVIEW_BUILD**. The older event-aware off-screen cut, deduplication, and last-survivor acceptance milestone remains **HOLD_FOR_VISUAL_ACCEPTANCE**.
 
 The last pre-checkpoint source milestone remains `48bf4c8e9` (`chore: ignore local dependency and Python cache artifacts`). The camera dependency packaging and this acceptance decision are separate from visual behavior acceptance. The existing deterministic short-timeout watchdog evidence and historical soak checkpoint remain unchanged.
 
@@ -143,8 +143,8 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 Next priorities are:
 
 1. complete native visual review of the packaged event-aware camera
-2. accept, tune, or reject the camera based on rendered-frame evidence
-3. stream-facing HUD only after camera review is resolved
+2. keep the accepted engagement offset behind the existing camera priority rules
+3. stream-facing HUD only after the remaining camera review is resolved
 4. configurable teams/loadouts
 5. define and fixture-test procedural close-quarters environment descriptors
 6. longer-duration soak testing for any accepted generated-scene candidate

@@ -2,7 +2,7 @@
 
 ## Decision
 
-Implement the approved spectator-camera follow-up in an isolated worktree and keep it behind the existing spectator camera priority rules. The feature is a review candidate; visual acceptance remains open until a targeted capture shows several opposite-edge exchanges.
+Implement the approved spectator-camera follow-up in an isolated worktree and keep it behind the existing spectator camera priority rules. The feature is a review candidate pending a targeted rendered-frame review.
 
 ## Behavior
 
@@ -29,4 +29,11 @@ Implement the approved spectator-camera follow-up in an isolated worktree and ke
 - Native `Debug Release|x64` build: PASS, 0 errors; existing compiler/project warnings remain.
 - Native runtime log: `CAMERA_FIRE_CONTROLLER` followed by `CAMERA_ENGAGEMENT` in a completed round.
 
-The runtime observation was sampled from a local Debug Release session; it was not treated as a complete visual acceptance run. The next acceptance capture should deliberately include two actors at opposite screen edges, confirm that both remain readable during exchange, and confirm the timed return to follow.
+## Visual acceptance — 2026-09-13
+
+- Focused Debug Release capture: 50 frames over approximately 25 seconds from an isolated worktree.
+- Three runtime engagement transitions were observed in the same session: each `CAMERA_FIRE_CONTROLLER` was followed by `CAMERA_ENGAGEMENT`.
+- Reviewed frames kept the firing side, opposing side, and active shot effects readable during combat; no sampled jitter or empty-terrain lock was observed.
+- The camera returned to ordinary follow framing between combat phases, including round transition and regrouping views.
+
+Decision: **ACCEPTED_FOR_THIS_REVIEW_BUILD**. This accepts the engagement-offset behavior for PR #284; the older event-aware camera milestone remains a separate review item.

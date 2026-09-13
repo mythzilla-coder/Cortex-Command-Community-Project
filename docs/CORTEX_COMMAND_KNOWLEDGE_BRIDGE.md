@@ -74,6 +74,14 @@ Read:
 - `docs/HANDOFF_CAMERA_HYBRID_REVIEW.md`
 - `docs/SPECTATOR_ARENA.md`
 
+The separate engagement-camera offset follow-up is implemented on PR #284's
+`spectator-random-factions` branch. A focused 50-frame Debug Release capture on
+2026-09-13 produced three `CAMERA_FIRE_CONTROLLER` → `CAMERA_ENGAGEMENT`
+transitions and kept both sides of sampled exchanges readable without sampled
+jitter or empty-terrain lock. Decision for that follow-up is
+`ACCEPTED_FOR_THIS_REVIEW_BUILD`; the older event-aware milestone above remains
+on hold independently.
+
 ## Observability state
 
 The telemetry helper and Python soak parser are implemented and unit-tested. Root-cause review found that Lua `print` is routed into the in-memory `ConsoleMan` buffer, while `LogConsole.txt` is written only during orderly `ConsoleMan::Destroy()`. The activity now snapshots the console buffer to ignored `SPECTATOR_EVENT_LOG.txt` after telemetry events. A fresh smoke run produced the expected records; a longer soak is still needed for completed-round statistics.
