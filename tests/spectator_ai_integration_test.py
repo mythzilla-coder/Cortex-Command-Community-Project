@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import unittest
 
 
@@ -211,6 +212,7 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertIn("CAMERA_EVENT_REMOVAL_UNCONFIRMED", source)
         self.assertIn("CAMERA_EVENT_ATTRIBUTION_ACCEPTED", source)
         self.assertIn("CAMERA_EVENT_ATTRIBUTION_NOT_EVALUATED", source)
+        self.assertRegex(source, r'reason = accepted\s+and "ACCEPTED"')
         self.assertIn("NO_CORRELATABLE_SHOT", source)
         self.assertIn("COOLDOWN", source)
         self.assertIn("DYING_OBSERVED", source)

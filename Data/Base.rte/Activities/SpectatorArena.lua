@@ -2675,7 +2675,7 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
                     cooldownReady = self.CameraEventCooldownReady,
                     selectedVictim = selected and selected.id or nil,
                     reason = accepted
-                        and nil
+                        and "ACCEPTED"
                         or (candidate.attributionReason or rejectionReason or "NO_CANDIDATE")
                 }
             );
