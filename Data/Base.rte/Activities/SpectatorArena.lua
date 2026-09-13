@@ -1138,6 +1138,10 @@ function SpectatorArena:StartActivity()
     self.CameraEventPosition = nil;
     self.CameraEngagementPosition = nil;
     self.CameraEngagementEnemy = nil;
+    -- Review-only trace state. This records camera evidence without changing
+    -- selection, priority, hold, or cooldown behavior.
+    self.CameraEventTraceEnabled = true;
+    self.CameraEventTargetIssued = false;
     self.CameraFocusPosition = self.CameraPos;
     self.CameraFocusScore = 0;
     self.CameraFocusActor = nil;
@@ -2291,6 +2295,7 @@ end
 
 
 function SpectatorArena:ReturnToSoldierFollow(team1Actors, team2Actors)
+    local previousMode = self.CameraMode;
     self.CameraMode = "CAMERA_SOLDIER";
     if not self:IsCameraAnchorValid(self.CameraFollowActor) then
         self.CameraFollowActor = self:SelectSoldierAnchor(team1Actors, team2Actors);
@@ -2302,6 +2307,12 @@ function SpectatorArena:ReturnToSoldierFollow(team1Actors, team2Actors)
     self.CameraFocusScore = 0;
     self.CameraModeTimer:Reset();
     self.CameraEvaluationTimer:Reset();
+    if previousMode == "CAMERA_EVENT" then
+        self:EmitCameraTrace("CAMERA_EVENT_RETURN", {
+            shooter = self.CameraLastShot and self.CameraLastShot.shooterID or nil
+        });
+        self.CameraEventTargetIssued = false;
+    end
 end
 
 
@@ -2314,6 +2325,18 @@ function SpectatorArena:EnterPOIMode(position, score, actor, enemy)
     self.CameraModeTimer:Reset();
     self.CameraPOICooldownTimer:Reset();
     self.CameraPOICooldownReady = false;
+end
+
+
+function SpectatorArena:EmitCameraTrace(event, fields)
+    if not self.CameraEventTraceEnabled or not self.Telemetry then
+        return;
+    end
+
+    fields = fields or {};
+    fields.round = self.RoundNumber;
+    fields.simMS = self.RoundTimer and self.RoundTimer.ElapsedSimTimeMS or 0;
+    self.Telemetry.Emit(event, fields);
 end
 
 
@@ -2362,6 +2385,12 @@ function SpectatorArena:TrackCameraFire()
             directionY = Vector(1, 0):RadRotate(self.CameraFollowActor:GetAimAngle(true)).Y
         };
         print("SpectatorArena: CAMERA_FIRE_CONTROLLER shooter=" .. tostring(actorID));
+        self:EmitCameraTrace("CAMERA_FIRE_OBSERVED", {
+            shooter = actorID,
+            source = "CONTROLLER",
+            originX = self.CameraLastShot.originX,
+            originY = self.CameraLastShot.originY
+        });
         self.CameraRecentFireTimer:Reset();
         return;
     end
@@ -2387,6 +2416,12 @@ function SpectatorArena:TrackCameraFire()
         directionY = aimDirection.Y
     };
     print("SpectatorArena: CAMERA_FIRE shooter=" .. tostring(actorID));
+    self:EmitCameraTrace("CAMERA_FIRE_OBSERVED", {
+        shooter = actorID,
+        source = "NATIVE",
+        originX = self.CameraLastShot.originX,
+        originY = self.CameraLastShot.originY
+    });
     self.CameraRecentFireTimer:Reset();
 end
 
@@ -2484,6 +2519,20 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
             );
 
             if tracked.team ~= self.CameraLastShot.shooterTeam
+                and not currentActor
+                and not tracked.dead
+            then
+                self:EmitCameraTrace("CAMERA_EVENT_REMOVAL_UNCONFIRMED", {
+                    shooter = self.CameraLastShot.shooterID,
+                    victim = uniqueID,
+                    victimTeam = tracked.team,
+                    trackedHealth = tracked.health,
+                    trackedWounds = tracked.wounds,
+                    shotAgeMS = self.CameraRecentFireTimer.ElapsedSimTimeMS
+                });
+            end
+
+            if tracked.team ~= self.CameraLastShot.shooterTeam
                 and hasObservedDeath then
                 local eventPosition = currentActor and currentActor.Pos or tracked.position;
                 local offset = SceneMan:ShortestDistance(
@@ -2498,6 +2547,14 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
                     y = self.CameraLastShot.originY + offset.Y,
                     position = Vector(eventPosition.X, eventPosition.Y),
                     deathObserved = true
+                });
+                self:EmitCameraTrace("CAMERA_EVENT_DEATH_OBSERVED", {
+                    shooter = self.CameraLastShot.shooterID,
+                    victim = uniqueID,
+                    victimTeam = tracked.team,
+                    victimX = eventPosition.X,
+                    victimY = eventPosition.Y,
+                    shotAgeMS = self.CameraRecentFireTimer.ElapsedSimTimeMS
                 });
             end
         end
@@ -2539,7 +2596,7 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
         directionY = self.CameraLastShot.directionY
     };
 
-    return self.CameraEventLogic.SelectEventCandidate(
+    local selected = self.CameraEventLogic.SelectEventCandidate(
         shot,
         disappearedActors,
         self.CameraHandledVictims,
@@ -2548,6 +2605,22 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
         self.CameraEventMinimumDistance,
         self.CameraEventMaximumRange
     );
+
+    if #disappearedActors > 0 then
+        self:EmitCameraTrace(
+            selected and "CAMERA_EVENT_ATTRIBUTION_ACCEPTED"
+                or "CAMERA_EVENT_ATTRIBUTION_REJECTED",
+            {
+                shooter = self.CameraLastShot.shooterID,
+                candidateCount = #disappearedActors,
+                shotAgeMS = shot.ageMS,
+                cooldownReady = self.CameraEventCooldownReady,
+                selectedVictim = selected and selected.id or nil
+            }
+        );
+    end
+
+    return selected;
 end
 
 
@@ -2556,10 +2629,19 @@ function SpectatorArena:EnterEventMode(event)
     self.CameraEventPosition = event.position;
     self.CameraFocusPosition = event.position;
     self.CameraHandledVictims[event.id] = true;
+    self.CameraEventTargetIssued = false;
     self.CameraModeTimer:Reset();
     self.CameraEventCooldownTimer:Reset();
     self.CameraEventCooldownReady = false;
     print("SpectatorArena: CAMERA_EVENT");
+    self:EmitCameraTrace("CAMERA_EVENT_REQUEST", {
+        shooter = self.CameraLastShot and self.CameraLastShot.shooterID or nil,
+        victim = event.id,
+        victimTeam = event.team,
+        victimX = event.position.X,
+        victimY = event.position.Y,
+        holdMS = self.CameraEventHoldMS
+    });
 end
 
 
@@ -2571,6 +2653,7 @@ function SpectatorArena:ResetCameraDirector()
     self.CameraEventPosition = nil;
     self.CameraEngagementPosition = nil;
     self.CameraEngagementEnemy = nil;
+    self.CameraEventTargetIssued = false;
     self.CameraLastShot = nil;
     self.CameraRoundsFiredByActor = {};
     self.CameraControllerFireByActor = {};
@@ -2779,9 +2862,21 @@ function SpectatorArena:UpdateCameraDirector(team1Actors, team2Actors)
     if self.CameraMode == "CAMERA_EVENT" then
         if not self.CameraEventPosition
             or self.CameraModeTimer:IsPastSimMS(self.CameraEventHoldMS) then
+            self:EmitCameraTrace("CAMERA_EVENT_HOLD_COMPLETE", {
+                shooter = self.CameraLastShot and self.CameraLastShot.shooterID or nil,
+                holdElapsedMS = self.CameraModeTimer.ElapsedSimTimeMS
+            });
             self.CameraEventPosition = nil;
             self:ReturnToSoldierFollow(team1Actors, team2Actors);
         else
+            if not self.CameraEventTargetIssued then
+                self.CameraEventTargetIssued = true;
+                self:EmitCameraTrace("CAMERA_EVENT_TARGET_ISSUED", {
+                    shooter = self.CameraLastShot and self.CameraLastShot.shooterID or nil,
+                    targetX = self.CameraEventPosition.X,
+                    targetY = self.CameraEventPosition.Y
+                });
+            end
             self:SetObservationTarget(self.CameraEventPosition, Activity.PLAYER_1);
             return;
         end

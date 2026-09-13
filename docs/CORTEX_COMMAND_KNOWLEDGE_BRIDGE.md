@@ -96,6 +96,17 @@ event-selection pipeline remains unproven. The next milestone is a
 telemetry-directed window from T − 2 s through request, selection, movement,
 arrival, and T + 3–5 s, followed by 3–5 complete-round observation.
 
+That attribution-directed capture was then run on the unchanged camera logic with
+review-only trace markers. Across five complete rounds plus a final bounded
+round, the runtime recorded 12 `CAMERA_EVENT_REMOVAL_UNCONFIRMED` records but
+zero `CAMERA_EVENT_DEATH_OBSERVED`, attribution accepts, event requests, or
+target issuances. The rendered sample stayed visually sane, but no attributable
+cut occurred. The current diagnostic finding is an actor-removal/death-
+observation boundary: victims can leave the live roster before a live→dead
+transition is visible, and several removals were already outside the 400 ms
+window. Next action is to resolve that boundary in diagnostic-only scope; do
+not loosen the conservative gate or add camera-v2 tracking yet.
+
 The next product-facing milestone, the stream-facing HUD overlay, is likewise
 accepted for this review build. It adds Lua-only corner team panels, centered
 round/time and combat-pressure text, and the existing result banner, without

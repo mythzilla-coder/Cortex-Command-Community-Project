@@ -41,3 +41,13 @@ Visual sanity: **PASS**. Camera behavioral acceptance: **HOLD**.
 This sample supports ordinary watchability only: the camera kept combat readable over uneven terrain, avoided sustained empty-terrain fixation, and showed no obvious sampled oscillation. It does not establish that an attributable event cut occurred, request-to-arrival timing, return behavior, deduplication/retrigger suppression, survivor/end-of-round priority, or acceptance across 3–5 complete rounds. Earlier telemetry also recorded zero events passing the conservative attribution gate, so this visual sample does not validate the event-selection pipeline.
 
 Next milestone: prove the first attributable camera cut with a telemetry-directed capture covering **T − 2 s → request → selection → camera movement → arrival → T + 3–5 s**, then separately observe 3–5 complete rounds for return/reset and survivor behavior. The nearby-ally firing aggregation idea remains deferred as a camera-v2 candidate.
+
+## Attribution-directed capture — 2026-09-13
+
+Review-only trace markers were added for observed fire, actor removal, attribution, request, target issuance, hold completion, and return. The markers do not change camera selection, priority, thresholds, holds, cooldowns, or target positions.
+
+- The traced run covered five complete rounds and recorded 68 followed-shooter fire observations; a final bounded round was also captured with 100 rendered frames at 976×579 over approximately 25 seconds.
+- Runtime recorded 12 `CAMERA_EVENT_REMOVAL_UNCONFIRMED` records, including removed victims with tracked health below zero, but zero `CAMERA_EVENT_DEATH_OBSERVED`, zero attribution accepts, zero event requests, and zero target-issuance markers.
+- The rendered sample remained visually sane, but no attributable camera cut occurred and therefore no end-to-end visual verification is claimed.
+
+Finding: the live actor roster can remove a victim before the camera observes a live→dead transition. Several unconfirmed removals were also outside the 400 ms attribution window. The next task is to resolve this death-observation boundary in diagnostic-only scope and then repeat the same narrow capture. Do not loosen attribution gates or add camera-v2 tracking before that proof exists.

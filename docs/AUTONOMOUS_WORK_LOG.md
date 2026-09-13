@@ -279,3 +279,20 @@ attribution gate, so event selection is still unproven. The next task is the
 first attributable camera-cut capture, using a narrow T − 2 s → request →
 selection → movement → arrival → T + 3–5 s window, followed by 3–5 complete
 rounds. HUD acceptance remains independent and unchanged.
+
+## 2026-09-13 — attributable camera-cut investigation
+
+The first telemetry-directed capture was executed with review-only camera trace
+markers. The traced run covered five complete rounds plus a final bounded round;
+the runtime recorded 12 `CAMERA_EVENT_REMOVAL_UNCONFIRMED` cases, including
+victims whose tracked health was already below zero, but zero
+`CAMERA_EVENT_DEATH_OBSERVED`, attribution accepts, requests, or target-
+issuance markers. A 100-frame, approximately 25-second rendered capture stayed
+visually sane but contained no attributable camera cut, so no behavioral
+acceptance claim is made.
+
+Finding: the actor roster can remove a victim before the camera observes a
+live→dead transition, and the observed removals were outside or near the end
+of the 400 ms attribution window. The next task is a diagnostic-only fix or
+instrumentation at that boundary, followed by the same narrow end-to-end
+capture. Attribution gates and camera-v2 ally tracking remain unchanged.
