@@ -39,10 +39,13 @@ function CameraEventLogic.SelectEventCandidate(shot, disappearedActors, handledV
 
     for _, actor in ipairs(disappearedActors) do
         if actor.team == shot.shooterTeam then
+            actor.attributionReason = "SHOOTER_MISMATCH"
             rejectionReason = "SHOOTER_MISMATCH"
         elseif not actor.deathObserved then
+            actor.attributionReason = "NO_CANDIDATE"
             rejectionReason = "NO_CANDIDATE"
         elseif handledVictims[actor.id] then
+            actor.attributionReason = "HANDLED_VICTIM"
             rejectionReason = "HANDLED_VICTIM"
         else
             local offsetX = actor.x - shot.originX
@@ -50,13 +53,16 @@ function CameraEventLogic.SelectEventCandidate(shot, disappearedActors, handledV
             local distance = math.sqrt((offsetX * offsetX) + (offsetY * offsetY))
 
             if distance < minimumRange or distance > maximumRange then
+                actor.attributionReason = "DISTANCE"
                 rejectionReason = "DISTANCE"
             else
                 local aimDot = ((offsetX * shot.directionX) + (offsetY * shot.directionY)) / (distance * directionLength)
                 if aimDot >= minimumAimDot then
                     plausible = actor
                     plausibleCount = plausibleCount + 1
+                    actor.attributionReason = nil
                 else
+                    actor.attributionReason = "AIM_CONE"
                     rejectionReason = "AIM_CONE"
                 end
             end
@@ -66,6 +72,11 @@ function CameraEventLogic.SelectEventCandidate(shot, disappearedActors, handledV
     if plausibleCount == 1 then
         return plausible, nil
     elseif plausibleCount > 1 then
+        for _, actor in ipairs(disappearedActors) do
+            if actor.attributionReason == nil then
+                actor.attributionReason = "MULTIPLE_VICTIMS"
+            end
+        end
         return nil, "MULTIPLE_VICTIMS"
     end
 

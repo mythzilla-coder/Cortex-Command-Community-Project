@@ -2522,61 +2522,74 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
     end
 
     local disappearedActors = {};
-    if self.CameraLastShot then
-        for uniqueID, tracked in pairs(self.CameraTrackedActors) do
-            local currentActor = currentActors[uniqueID];
-            local observedDying = currentActor
-                and self.CameraEventLogic.HasObservedDying(
-                    tracked.status,
-                    currentActor.Status,
-                    Actor.DYING
-                )
-                or false;
+    for uniqueID, tracked in pairs(self.CameraTrackedActors) do
+        local currentActor = currentActors[uniqueID];
+        local observedDying = currentActor
+            and self.CameraEventLogic.HasObservedDying(
+                tracked.status,
+                currentActor.Status,
+                Actor.DYING
+            )
+            or false;
+        local opposingActor = self.CameraLastShot
+            and tracked.team ~= self.CameraLastShot.shooterTeam;
 
-            if tracked.team ~= self.CameraLastShot.shooterTeam
-                and not currentActor
-                and tracked.status ~= Actor.DYING
-            then
-                self:EmitCameraTrace("CAMERA_EVENT_REMOVAL_UNCONFIRMED", {
-                    shooter = self.CameraLastShot.shooterID,
-                    victim = uniqueID,
-                    victimTeam = tracked.team,
-                    trackedStatus = tracked.status,
-                    trackedHealth = tracked.health,
-                    trackedWounds = tracked.wounds,
-                    shotAgeMS = self.CameraRecentFireTimer.ElapsedSimTimeMS
-                });
-            end
+        if opposingActor
+            and not currentActor
+            and tracked.status ~= Actor.DYING
+        then
+            self:EmitCameraTrace("CAMERA_EVENT_REMOVAL_UNCONFIRMED", {
+                shooter = self.CameraLastShot.shooterID,
+                victim = uniqueID,
+                victimTeam = tracked.team,
+                trackedStatus = tracked.status,
+                trackedHealth = tracked.health,
+                trackedWounds = tracked.wounds,
+                shotAgeMS = self.CameraRecentFireTimer.ElapsedSimTimeMS
+            });
+        end
 
-            if tracked.team ~= self.CameraLastShot.shooterTeam and observedDying then
-                local eventPosition = currentActor.Pos;
+        if observedDying then
+            local eventPosition = currentActor.Pos;
+            local traceID = self.CameraLastShot and self.CameraLastShot.traceID or nil;
+            local shooterID = self.CameraLastShot and self.CameraLastShot.shooterID or nil;
+            local shooterTeam = self.CameraLastShot and self.CameraLastShot.shooterTeam or nil;
+            local x = eventPosition.X;
+            local y = eventPosition.Y;
+
+            if self.CameraLastShot then
                 local offset = SceneMan:ShortestDistance(
                     Vector(self.CameraLastShot.originX, self.CameraLastShot.originY),
                     eventPosition,
                     SceneMan.SceneWrapsX
                 );
-                table.insert(disappearedActors, {
-                    id = uniqueID,
-                    team = tracked.team,
-                    x = self.CameraLastShot.originX + offset.X,
-                    y = self.CameraLastShot.originY + offset.Y,
-                    position = Vector(eventPosition.X, eventPosition.Y),
-                    deathObserved = true,
-                    lifecycle = "DYING",
-                    traceID = self.CameraLastShot.traceID
-                });
-                self:EmitCameraTrace("CAMERA_EVENT_DYING_OBSERVED", {
-                    traceID = self.CameraLastShot.traceID,
-                    shooter = self.CameraLastShot.shooterID,
-                    victim = uniqueID,
-                    victimTeam = tracked.team,
-                    victimX = eventPosition.X,
-                    victimY = eventPosition.Y,
-                    health = currentActor.Health,
-                    prevHealth = currentActor.PrevHealth,
-                    shotAgeMS = self.CameraRecentFireTimer.ElapsedSimTimeMS
-                });
+                x = self.CameraLastShot.originX + offset.X;
+                y = self.CameraLastShot.originY + offset.Y;
             end
+
+            table.insert(disappearedActors, {
+                id = uniqueID,
+                team = tracked.team,
+                x = x,
+                y = y,
+                position = Vector(eventPosition.X, eventPosition.Y),
+                deathObserved = true,
+                lifecycle = "DYING",
+                traceID = traceID
+            });
+            self:EmitCameraTrace("CAMERA_EVENT_DYING_OBSERVED", {
+                traceID = traceID,
+                shooter = shooterID,
+                victim = uniqueID,
+                victimTeam = tracked.team,
+                victimX = eventPosition.X,
+                victimY = eventPosition.Y,
+                health = currentActor.Health,
+                prevHealth = currentActor.PrevHealth,
+                shotAgeMS = self.CameraLastShot
+                    and self.CameraRecentFireTimer.ElapsedSimTimeMS
+                    or nil
+            });
         end
     end
 
@@ -2602,10 +2615,28 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
         };
     end
 
-    if not self.CameraLastShot
-        or not self.CameraEventCooldownReady
-        or self:IsCameraAnchorValid(self.CameraFollowActor)
-            and self.CameraFollowActor.UniqueID ~= self.CameraLastShot.shooterID then
+    local notEvaluatedReason = nil;
+    if not self.CameraLastShot then
+        notEvaluatedReason = "NO_CORRELATABLE_SHOT";
+    elseif not self.CameraEventCooldownReady then
+        notEvaluatedReason = "COOLDOWN";
+    elseif self:IsCameraAnchorValid(self.CameraFollowActor)
+        and self.CameraFollowActor.UniqueID ~= self.CameraLastShot.shooterID
+    then
+        notEvaluatedReason = "SHOOTER_MISMATCH";
+    end
+
+    if notEvaluatedReason then
+        for _, candidate in ipairs(disappearedActors) do
+            self:EmitCameraTrace("CAMERA_EVENT_ATTRIBUTION_NOT_EVALUATED", {
+                traceID = candidate.traceID,
+                shooter = self.CameraLastShot and self.CameraLastShot.shooterID or nil,
+                victim = candidate.id,
+                victimTeam = candidate.team,
+                candidateCount = #disappearedActors,
+                reason = notEvaluatedReason
+            });
+        end
         return nil;
     end
 
@@ -2630,19 +2661,25 @@ function SpectatorArena:DetectCameraEvent(team1Actors, team2Actors)
     );
 
     if #disappearedActors > 0 then
-        self:EmitCameraTrace(
-            selected and "CAMERA_EVENT_ATTRIBUTION_ACCEPTED"
-                or "CAMERA_EVENT_ATTRIBUTION_REJECTED",
-            {
-                traceID = shot.traceID,
-                shooter = self.CameraLastShot.shooterID,
-                candidateCount = #disappearedActors,
-                shotAgeMS = shot.ageMS,
-                cooldownReady = self.CameraEventCooldownReady,
-                selectedVictim = selected and selected.id or nil,
-                reason = selected and nil or (rejectionReason or "NO_CANDIDATE")
-            }
-        );
+        for _, candidate in ipairs(disappearedActors) do
+            local accepted = selected and selected.id == candidate.id;
+            self:EmitCameraTrace(
+                accepted and "CAMERA_EVENT_ATTRIBUTION_ACCEPTED"
+                    or "CAMERA_EVENT_ATTRIBUTION_REJECTED",
+                {
+                    traceID = shot.traceID,
+                    shooter = self.CameraLastShot.shooterID,
+                    victim = candidate.id,
+                    candidateCount = #disappearedActors,
+                    shotAgeMS = shot.ageMS,
+                    cooldownReady = self.CameraEventCooldownReady,
+                    selectedVictim = selected and selected.id or nil,
+                    reason = accepted
+                        and nil
+                        or (candidate.attributionReason or rejectionReason or "NO_CANDIDATE")
+                }
+            );
+        end
     end
 
     return selected;

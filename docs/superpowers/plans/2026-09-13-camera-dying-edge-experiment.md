@@ -157,3 +157,41 @@ git push fork HEAD:spectator-random-factions
 - [ ] **Step 4: Update Drive and Notion**
 
 Replace the four canonical Drive markdown artifacts from the isolated worktree and update the existing Notion project page with the new commit, experiment status, and next milestone. Read back all five records before reporting completion.
+
+### Task 5: Close DYING attribution accounting and run the condition-based sample
+
+**Files:**
+- Modify: `tests/spectator_ai_integration_test.py`
+- Modify: `Data/Base.rte/Activities/SpectatorArena.lua`
+- Modify: `docs/SPECTATOR_CAMERA_ENGAGEMENT_OFFSET_2026-09-13.md`
+- Modify: `docs/SPECTATOR_ARENA.md`
+- Modify: `docs/CORTEX_COMMAND_KNOWLEDGE_BRIDGE.md`
+- Modify: `docs/AUTONOMOUS_WORK_LOG.md`
+
+**Interfaces:**
+- Consumes: One-shot `CAMERA_EVENT_DYING_OBSERVED` records and the existing attribution selector.
+- Produces: Exactly one terminal `CAMERA_EVENT_ATTRIBUTION_ACCEPTED`, `CAMERA_EVENT_ATTRIBUTION_REJECTED`, or `CAMERA_EVENT_ATTRIBUTION_NOT_EVALUATED` disposition per DYING edge, plus condition-based runtime evidence.
+
+- [ ] **Step 1: Write the failing accounting assertions**
+
+Require the activity source to contain `CAMERA_EVENT_ATTRIBUTION_NOT_EVALUATED`, `NO_CORRELATABLE_SHOT`, `COOLDOWN`, and `DYING_OBSERVED` alongside the existing acceptance/rejection markers. The existing runtime parser must count the three terminal disposition event names separately.
+
+- [ ] **Step 2: Run the focused test to verify it fails**
+
+Run `python tests/spectator_ai_integration_test.py`. Expected result: the test fails because the not-evaluated marker and reasons are not yet present.
+
+- [ ] **Step 3: Implement terminal accounting without changing attribution policy**
+
+Collect DYING candidates even when no shot is available, and emit `CAMERA_EVENT_ATTRIBUTION_NOT_EVALUATED` with `NO_CORRELATABLE_SHOT`, `COOLDOWN`, or `SHOOTER_MISMATCH` when the existing early-return conditions prevent evaluation. When evaluation runs, emit one accepted or rejected disposition per candidate; use `MULTIPLE_VICTIMS` for every candidate in an ambiguous set. Keep selection, thresholds, recency, cooldown, priority, and camera state unchanged.
+
+- [ ] **Step 4: Run all focused verification**
+
+Run the Python integration suite, native Debug Release launch, and `git diff --check`. Confirm the accounting invariant in the runtime parser: DYING observed equals accepted plus rejected plus not evaluated.
+
+- [ ] **Step 5: Run until an accept or the round bound**
+
+Capture a rolling rendered-frame buffer at the established window size while the unchanged Arena runs until the first accepted trace ID or 20 completed rounds, whichever comes first. Preserve the prior 8 seconds of frames when an accept appears, then retain at least 5 seconds after return. If no accept appears, keep only the bounded summary and report all terminal dispositions.
+
+- [ ] **Step 6: Document and synchronize the outcome**
+
+Record the exact counts, reason distribution, first accepted trace ID if any, frame-buffer path, and acceptance status in the four local documents. Commit, push the PR branch, fast-forward the original checkout, update the four Drive artifacts and the Notion project page, and read back all external records.
