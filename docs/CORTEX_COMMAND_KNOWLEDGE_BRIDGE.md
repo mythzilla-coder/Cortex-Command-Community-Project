@@ -1,6 +1,6 @@
 # Cortex Command — Shared Knowledge Bridge
 
-Last synchronized locally: 2026-09-03
+Last synchronized locally: 2026-09-13
 
 This is the repository-side continuity contract for regular ChatGPT and Codex. External Drive and Notion records are continuity mirrors; newer local Git, tests, and runtime evidence take precedence.
 
@@ -19,7 +19,7 @@ Before implementation, inspect `git status`, the current branch/HEAD, recent his
 `C:\Users\mythz\Documents\Cortex-Command-Community-Project`
 
 Current local branch: `spectator-random-factions`  
-Current local HEAD: `1bff421aefaa5f383aa815502d150a885c5b2735 Trace Arena firearm attachment boundary`
+Current local HEAD: `297d8b2d7 docs: record native camera capture review`
 
 The working tree is dirty with newer post-checkpoint runtime evidence and
 unrelated camera/research work. Preserve that state; do not reset, clean,
@@ -53,13 +53,20 @@ V11/V11.1 AI behavior is accepted and frozen for now. Actors spawn in SENTRY, mu
 
 ## Unresolved camera milestone
 
-The event-aware hybrid camera remains uncommitted and pending human visual acceptance. Its priority is:
+The event-aware hybrid camera is packaged in `e7422a9c8` and proposed in
+upstream PR #284, but remains pending human visual acceptance. Its priority is:
 
 `LAST_SURVIVOR > CAMERA_EVENT > CAMERA_SOLDIER > CAMERA_POI > CAMERA_CENTER`
 
 Review values are a 400 ms fire window, 2000 ms event hold, 4000 ms cooldown, 180–1200 pixel range, 0.85 aim-dot threshold, and per-round victim deduplication. Attribution is conservative inference, not engine-confirmed killer attribution.
 
-Required before commit: review 3–5 complete rounds, observe a credible off-screen event cut, confirm timing, no false cuts, clean return to soldier-follow, deduplication, and last-survivor priority.
+The 2026-09-13 local capture showed generally action-centered hill/valley
+framing without a sustained empty-terrain lock, but did not establish a
+credible off-screen event cut, return timing, deduplication, last-survivor
+priority, or 3–5 complete rounds. Decision remains
+`HOLD_FOR_VISUAL_ACCEPTANCE`. Required before acceptance: review 3–5 complete
+rounds, observe a credible off-screen event cut, confirm timing, no false cuts,
+clean return to soldier-follow, deduplication, and last-survivor priority.
 
 Read:
 
