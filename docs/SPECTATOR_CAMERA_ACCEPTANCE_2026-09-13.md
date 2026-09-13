@@ -4,12 +4,38 @@
 
 **HOLD_FOR_VISUAL_ACCEPTANCE**
 
-The event-aware camera helper and integration remain behaviorally unaccepted. The
-required native review of 3–5 complete rounds could not be completed in this
-session because the Windows computer-use surface exposed no native app window,
-and the fresh process did not produce a reviewable runtime capture. This is an
-infrastructure/review limitation, not evidence that the camera behavior passed
-or failed.
+The event-aware camera helper and integration remain behaviorally unaccepted.
+The required native review of 3–5 complete rounds was not completed in the
+initial attempt because the Windows computer-use surface exposed no native app
+window. A later short local screen capture is documented below; it provides
+partial visual evidence but is not enough to classify the camera as accepted.
+
+## Partial native screen capture — 2026-09-13
+
+A local 25-second capture of the visible `Cortex Command Community Project
+(Debug Release)` window was reviewed at 2 frames per second (50 PNG frames,
+976x579). The segment covered the end of round 28 and the beginning of round
+29.
+
+Observed:
+
+- the camera kept the active hill/valley combat area in view and followed the
+  main combat groups across the terrain;
+- the round transition centered the airborne squad rather than holding on empty
+  terrain;
+- no sustained empty-terrain lock or obvious jitter was visible in the sampled
+  frames.
+
+Not established by this short capture:
+
+- a deliberately observed off-screen attributed event cut;
+- event hold/return timing and victim deduplication;
+- last-survivor priority and clean reset across 3–5 complete rounds.
+
+Capture frames are preserved locally under
+`work/native-camera-capture-2026-09-13/`. This is useful visual evidence, but
+it does not replace the required full-round event-aware review. Decision remains
+**HOLD_FOR_VISUAL_ACCEPTANCE**.
 
 ## Integrity checkpoint
 

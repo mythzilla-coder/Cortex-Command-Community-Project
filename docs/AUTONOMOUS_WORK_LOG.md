@@ -187,3 +187,58 @@ Verification:
 
 Remaining:
 - Add aggregate SHADOW counters and execution-cost timing before another semantic SHADOW run.
+
+## 2026-09-04 — Verified long-run raw evidence
+
+Changed:
+- Independently parsed `logs/session-2026-09-03-debug-release-0924/` with `tools/spectator_soak_report.py` and a separate line-level cross-check.
+- Added `docs/SPECTATOR_LONG_RUN_ANALYSIS_2026-09-03.md` with hashes, statistics, interpretation, and Drive links.
+
+Verified evidence:
+- `SPECTATOR_EVENT_LOG.txt`: 104 round starts and 104 completed rounds.
+- `LogConsole.txt`: 105 starts and 104 completed rounds; round 105 is an incomplete trailing round after shutdown-time console flushing.
+- Winner distribution: Imperatus 28, Browncoats 22, Coalition 21, Techion 17, Ronin 11, Dummy 5.
+- Completed-round duration: minimum 22,215.778 ms, maximum 91,712.998 ms, mean 43,078.56525 ms, median 40,656.707 ms.
+- Watchdogs: 0. `AI_SHADOW_OBSERVATION` records: 0.
+- AI V2 mode is evidenced as `OFF` by the session configuration and trace markers.
+
+Status:
+- The 104 completed OFF-mode rounds qualify toward and exceed the canonical 50-round OFF baseline count; the incomplete round is excluded.
+- The formal AI activation gate remains `OFF` because this run contains no SHADOW semantic evidence and does not establish behavior quality or CPU/UPS thresholds.
+
+## 2026-09-03 — Debug Release runtime log archive
+
+Changed:
+- Launched the newest available executable, `Cortex Command.debug.release.exe`.
+- Closed the game through its normal window-close path so buffered console and loading logs were flushed.
+- Archived the session output under `logs/session-2026-09-03-debug-release-0924/`.
+
+Captured:
+- 5 files, approximately 4.3 MB: `LogConsole.txt`, `LogLoading.txt`, `SPECTATOR_EVENT_LOG.txt`, `SPECTATOR_ARENA_SPAWN_TRACE_LOG.txt`, and `SPECTATOR_ARENA_POST_SPAWN_TRACE_LOG.txt`.
+- The preserved console history contains 104 `ROUND_RESULT` records and no watchdog records.
+- This launch did not produce new `AI_SHADOW_OBSERVATION` records, so it is not new SHADOW semantic evidence.
+
+Status:
+- The process exited normally and the archive is retained for future evaluation.
+- The SHADOW evidence gate and 50-round OFF baseline remain unchanged.
+
+## 2026-09-05 bounded integrity/R2 continuation
+
+See SPECTATOR_CONTINUATION_STATUS_2026-09-05.md for exact commands, raw evidence, binary hash, and next capture contract. Confirmed committed missing camera dependency; preserved candidate pending review. Reparsed OFF snapshots: 104/104 event and 104/105 console, zero watchdogs. R1B: 16/16 attached valid retained weapons and empty equipped discovery; 16/16 missing arm MOID, so R2 first divergence remains undetermined. Python 12 tests OK; camera/controller/telemetry Lua PASS. Initial mistyped telemetry filename corrected. No source/settings changes, native build, or native runtime claim. Existing dirty artifacts and historical tag preserved. Starting status/pre-existing tracked patch and Python results saved under work/continuation-2026-09-05/. Dedicated status report committed separately; this appended log remains recoverable with prior user edits intact.
+Report commit: 0eb20c432. Drive connector upload success=true, destination parent 0AGSQc2hrH2H_Uk9PVA, file ID 1HSP6eelqR2ttV_oRzESaX4Ir7jcwbxWe. URL: https://drive.google.com/file/d/1HSP6eelqR2ttV_oRzESaX4Ir7jcwbxWe/view?usp=drivesdk
+
+## 2026-09-13 — native camera capture review
+
+Captured and reviewed 50 local PNG frames over approximately 25 seconds from the
+visible Debug Release game window at 976x579. The segment covered the end of
+round 28 and the beginning of round 29. The camera generally kept active combat
+groups in view across the hill/valley and did not show a sustained empty-terrain
+lock in the sampled frames. The transition into the next round centered the
+airborne squad. No deliberately observed off-screen event cut, return timing,
+victim deduplication, last-survivor priority, or 3–5 full-round acceptance was
+established. Decision remains **HOLD_FOR_VISUAL_ACCEPTANCE**. Production
+`AI_V2_MODE` remains `OFF`.
+
+## 2026-09-05 — isolated broad-development checkpoint
+
+See docs/SPECTATOR_IMPLEMENTATION_STATUS_2026-09-05.md. New implementation is in branch spectator-development-2026-09-05 at C:/Users/mythz/Documents/Codex/2026-09-05/cortex-command-community-project/work/development; it has not been merged or committed as implementation. Native build passed; R2 identified and corrected missing AHuman casts. Preserved corrected SHADOW evidence: 5/5 rounds, zero watchdogs, 1,662 fire events and 693 damage observations (supersedes the earlier three-round interim summary). Independent D1 fixture: health 100->98, wounds 0->1, PASS. HUD/configuration/proposal code remains candidate: first HUD run had an OPENGL32.DLL access violation; repeat visual verification was interrupted by physical Escape. All 16 Python and 10 Lua tests pass at documentation time, but native feature acceptance and TASKS-A GO remain pending. Saved defaults are OFF, retention=false, topology diagnostics=false. Historical tag and this checkout's pre-existing dirty work are preserved. Upload receipts will follow after connector readback.

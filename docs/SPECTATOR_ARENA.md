@@ -48,6 +48,20 @@ The active registration is in `Data/Base.rte/Activities.ini`; the implementation
 
 The activity preserves the existing faction pool, faction-owned weapons, eight actors per side, real-time AI movement/combat, spectator camera, elimination detection, cumulative score, and automatic round restart.
 
+## Procedural close-quarters environments — proposed extension
+
+The fixed `Ketanot Hills` scene remains the current verification baseline. A
+planned environment extension will add compact, seedable room-grammar layouts
+for short-form spectator encounters: authored room archetypes assembled through
+socket constraints, topology/readability scoring, encounter seeds, and a
+bounded runtime director for doors, hazards, lights, and route changes.
+
+This is a design-only proposal at present. It is intentionally separated from
+the accepted round lifecycle, NativeHumanAI behavior, camera acceptance, and
+AI V2 activation gates. See
+`docs/SPECTATOR_PROCEDURAL_CLOSE_QUARTERS_DESIGN_2026-09-05.md` for the
+detailed contract, manifests, staged gates, and fixed-scene fallback.
+
 ## Round state machine
 
 The lifecycle is explicit in `SpectatorArena.lua` and emits one concise transition log per state change:
@@ -96,9 +110,9 @@ The round reset removes surviving team actors without creating artificial gibs, 
 
 ## Verification and known issues
 
-The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. The source was rebuilt as `Debug Release|x64` with zero build errors, and a fresh process directly loaded `Ketanot Hills`, started `Spectator Arena`, and entered `BATTLE`. Hardware-rendered frames were captured successfully and showed soldier-centered combat without an observed empty-terrain lock. The corrected build has not yet completed the required 3–5 visually reviewed rounds, and a deliberately observed off-screen attributed kill has not yet been confirmed. The milestone is therefore **review pending**, not accepted, complete, or committed.
+The event-aware review build passes its standalone Lua behavioral tests and Lua syntax check. Its required helper module and pure test are now packaged with the activity so a clean checkout is self-contained. The source was rebuilt as `Debug Release|x64` with zero build errors. A short native screen capture reviewed on 2026-09-13 showed generally action-centered hill/valley framing without a sustained empty-terrain lock, but it did not establish an attributed off-screen event cut, deduplication, return timing, last-survivor priority, or the required 3–5 complete rounds. Visual acceptance remains **HOLD_FOR_VISUAL_ACCEPTANCE**; the camera behavior is not yet accepted or complete.
 
-The last committed milestone remains `3d67863e7` (`Document hybrid spectator camera handoff`). The event-aware camera, its pure inference module, tests, and these documentation updates remain uncommitted for review. The existing deterministic short-timeout watchdog evidence and historical soak checkpoint remain unchanged.
+The last pre-checkpoint source milestone remains `48bf4c8e9` (`chore: ignore local dependency and Python cache artifacts`). The camera dependency packaging and this acceptance decision are separate from visual behavior acceptance. The existing deterministic short-timeout watchdog evidence and historical soak checkpoint remain unchanged.
 
 The runtime still emits an empty-scene-preset warning before successfully loading `Ketanot Hills`, plus repeated sound-device initialization warnings. These are known warnings and are separate from the Lua lifecycle changes. The historical checkpoint/tag `spectator-soak-2026-08-31` remains unchanged.
 
@@ -110,8 +124,9 @@ To restore normal menu startup, set `LaunchIntoActivity = 0` for a runtime-only 
 
 Next priorities are:
 
-1. finish human review and tune/accept the event-aware camera
-2. commit the accepted event-aware camera milestone
-3. stream-facing HUD
+1. complete native visual review of the packaged event-aware camera
+2. accept, tune, or reject the camera based on rendered-frame evidence
+3. stream-facing HUD only after camera review is resolved
 4. configurable teams/loadouts
-5. longer-duration soak testing
+5. define and fixture-test procedural close-quarters environment descriptors
+6. longer-duration soak testing for any accepted generated-scene candidate
