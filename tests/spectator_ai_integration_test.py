@@ -4,6 +4,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 ACTIVITY = ROOT / "Data" / "Base.rte" / "Activities" / "SpectatorArena.lua"
+CAMERA_LOGIC = ROOT / "Data" / "Base.rte" / "Activities" / "SpectatorCameraEventLogic.lua"
 
 
 class SpectatorAIIntegrationTests(unittest.TestCase):
@@ -181,6 +182,7 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
 
     def test_spectator_hud_uses_screen_primitives_and_preserves_result_banner(self):
         source = ACTIVITY.read_text(encoding="utf-8")
+        camera_logic = CAMERA_LOGIC.read_text(encoding="utf-8")
 
         self.assertIn('self.HUDLogic = require("Activities/SpectatorHUDLogic")', source)
         self.assertIn("function SpectatorArena:DrawSpectatorHUD", source)
@@ -205,9 +207,16 @@ class SpectatorAIIntegrationTests(unittest.TestCase):
         self.assertIn("self.CameraEngagementHoldMS", source)
         self.assertIn("self.CameraEngagementCooldownReady", source)
         self.assertIn("self.CameraEngagementCooldownTimer:IsPastSimMS(self.CameraEngagementCooldownMS)", source)
-        self.assertIn("CAMERA_EVENT_DEATH_OBSERVED", source)
+        self.assertIn("CAMERA_EVENT_DYING_OBSERVED", source)
         self.assertIn("CAMERA_EVENT_REMOVAL_UNCONFIRMED", source)
         self.assertIn("CAMERA_EVENT_ATTRIBUTION_ACCEPTED", source)
+        self.assertIn("traceID", source)
+        self.assertIn("STALE_SHOT", camera_logic)
+        self.assertIn("SHOOTER_MISMATCH", camera_logic)
+        self.assertIn("NO_CANDIDATE", camera_logic)
+        self.assertIn("AIM_CONE", camera_logic)
+        self.assertIn("DISTANCE", camera_logic)
+        self.assertIn("MULTIPLE_VICTIMS", camera_logic)
         self.assertIn("CAMERA_EVENT_REQUEST", source)
         self.assertIn("CAMERA_EVENT_TARGET_ISSUED", source)
         self.assertIn("CAMERA_EVENT_HOLD_COMPLETE", source)

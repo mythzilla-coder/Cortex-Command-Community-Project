@@ -19,40 +19,57 @@ function CameraEventLogic.HasObservedDeath(previouslyDead, currentlyPresent, cur
         or (not currentlyPresent and previouslyDead)
 end
 
+function CameraEventLogic.HasObservedDying(previousStatus, currentStatus, dyingStatus)
+    return previousStatus ~= dyingStatus and currentStatus == dyingStatus
+end
+
 function CameraEventLogic.SelectEventCandidate(shot, disappearedActors, handledVictims, recentFireWindowMS, minimumAimDot, minimumRange, maximumRange)
     if not shot or shot.ageMS < 0 or shot.ageMS > recentFireWindowMS then
-        return nil
+        return nil, "STALE_SHOT"
     end
 
     local directionLength = math.sqrt((shot.directionX * shot.directionX) + (shot.directionY * shot.directionY))
     if directionLength <= 0 then
-        return nil
+        return nil, "NO_CANDIDATE"
     end
 
     local plausible = nil
     local plausibleCount = 0
+    local rejectionReason = "NO_CANDIDATE"
 
     for _, actor in ipairs(disappearedActors) do
-        if actor.team ~= shot.shooterTeam and actor.deathObserved and not handledVictims[actor.id] then
+        if actor.team == shot.shooterTeam then
+            rejectionReason = "SHOOTER_MISMATCH"
+        elseif not actor.deathObserved then
+            rejectionReason = "NO_CANDIDATE"
+        elseif handledVictims[actor.id] then
+            rejectionReason = "HANDLED_VICTIM"
+        else
             local offsetX = actor.x - shot.originX
             local offsetY = actor.y - shot.originY
             local distance = math.sqrt((offsetX * offsetX) + (offsetY * offsetY))
 
-            if distance >= minimumRange and distance <= maximumRange then
+            if distance < minimumRange or distance > maximumRange then
+                rejectionReason = "DISTANCE"
+            else
                 local aimDot = ((offsetX * shot.directionX) + (offsetY * shot.directionY)) / (distance * directionLength)
                 if aimDot >= minimumAimDot then
                     plausible = actor
                     plausibleCount = plausibleCount + 1
+                else
+                    rejectionReason = "AIM_CONE"
                 end
             end
         end
     end
 
     if plausibleCount == 1 then
-        return plausible
+        return plausible, nil
+    elseif plausibleCount > 1 then
+        return nil, "MULTIPLE_VICTIMS"
     end
 
-    return nil
+    return nil, rejectionReason
 end
 
 function CameraEventLogic.SelectEngagementTarget(shot, actors, minimumAimDot, minimumRange, maximumRange)

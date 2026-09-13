@@ -54,7 +54,7 @@ selected = CameraEventLogic.SelectEventCandidate(
 )
 assertEqual(selected, nil, "death behind the shooter should not be attributed")
 
-selected = CameraEventLogic.SelectEventCandidate(
+local rejected, rejectionReason = CameraEventLogic.SelectEventCandidate(
     { ageMS = 700, shooterTeam = 1, originX = 100, originY = 100, directionX = 1, directionY = 0 },
     { candidate(21, 300, 100, 2) },
     {},
@@ -64,6 +64,7 @@ selected = CameraEventLogic.SelectEventCandidate(
     1200
 )
 assertEqual(selected, nil, "stale shots should not be attributed")
+assertEqual(rejectionReason, "STALE_SHOT", "stale shots should report their rejection reason")
 
 selected = CameraEventLogic.SelectEventCandidate(
     recentShot,
@@ -108,6 +109,17 @@ selected = CameraEventLogic.SelectEventCandidate(
     1200
 )
 assertEqual(selected, nil, "a death outside the narrow aim cone should not be attributed")
+rejected, rejectionReason = CameraEventLogic.SelectEventCandidate(
+    recentShot,
+    { candidate(25, 300, 300, 2) },
+    {},
+    500,
+    0.85,
+    180,
+    1200
+)
+assertEqual(rejected, nil, "aim-cone rejection should not select a victim")
+assertEqual(rejectionReason, "AIM_CONE", "aim-cone rejection should report its reason")
 
 assertEqual(CameraEventLogic.HasLastSurvivorPriority(1, 4), true, "one team-1 survivor should suppress event cuts")
 assertEqual(CameraEventLogic.HasLastSurvivorPriority(3, 1), true, "one team-2 survivor should suppress event cuts")
@@ -119,6 +131,21 @@ assertEqual(CameraEventLogic.HasObservedDeath(false, true, true), true, "live-to
 assertEqual(CameraEventLogic.HasObservedDeath(true, false, false), true, "removal after observed death preserves death evidence")
 assertEqual(CameraEventLogic.HasObservedDeath(false, false, false), false, "unexplained removal is not death evidence")
 assertEqual(CameraEventLogic.HasObservedDeath(false, true, false), false, "a living actor is not a death event")
+assertEqual(
+    CameraEventLogic.HasObservedDying(0, 3, 3),
+    true,
+    "stable-to-dying transition is lifecycle evidence"
+)
+assertEqual(
+    CameraEventLogic.HasObservedDying(3, 3, 3),
+    false,
+    "a sustained dying state is not a second edge"
+)
+assertEqual(
+    CameraEventLogic.HasObservedDying(4, 4, 3),
+    false,
+    "dead state is not a new dying edge"
+)
 
 local engagementShot = {
     shooterTeam = 1,
