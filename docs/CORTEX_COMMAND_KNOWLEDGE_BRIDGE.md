@@ -19,7 +19,7 @@ Before implementation, inspect `git status`, the current branch/HEAD, recent his
 `C:\Users\mythz\Documents\Cortex-Command-Community-Project`
 
 Current local branch: `spectator-random-factions`  
-Current local HEAD: `297d8b2d7 docs: record native camera capture review`
+Current local HEAD: `2225e44bd feat: lead spectator camera toward firing targets`
 
 The working tree is dirty with newer post-checkpoint runtime evidence and
 unrelated camera/research work. Preserve that state; do not reset, clean,
@@ -67,6 +67,15 @@ priority, or 3–5 complete rounds. Decision remains
 `HOLD_FOR_VISUAL_ACCEPTANCE`. Required before acceptance: review 3–5 complete
 rounds, observe a credible off-screen event cut, confirm timing, no false cuts,
 clean return to soldier-follow, deduplication, and last-survivor priority.
+
+The approved engagement offset is now implemented in PR #284. When the
+followed actor fires, the camera selects the nearest opposing living actor in
+the firing cone and biases the frame 55% toward that enemy for 900 ms, with a
+1400 ms cooldown. Native firearm signals are preferred; a rising
+`Controller.WEAPON_FIRE` edge is a guarded fallback for the live actor-wrapper
+attachment mismatch. A completed native round emitted
+`CAMERA_FIRE_CONTROLLER` followed by `CAMERA_ENGAGEMENT`. This confirms the
+runtime trigger path, but does not replace the pending targeted visual review.
 
 Read:
 
